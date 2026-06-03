@@ -1,2539 +1,1348 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PolyStrike 3D - FPS Browser Game</title>
-    <!-- Tailwind CSS para estilização rápida da UI moderna -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Biblioteca Three.js para renderização 3D robusta -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            user-select: none;
-            -webkit-user-select: none;
-            background-color: #0b0f19;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        #canvas-container {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 10;
-        }
-        /* Mira crosshair dinâmica */
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 20;
-            pointer-events: none;
-            transition: all 0.1s ease;
-        }
-        .crosshair-line {
-            position: absolute;
-            background-color: rgba(0, 255, 136, 0.9);
-            box-shadow: 0 0 4px rgba(0, 255, 136, 0.6);
-        }
-        .ch-vertical {
-            width: 2px;
-            height: 14px;
-            left: -1px;
-        }
-        .ch-horizontal {
-            width: 14px;
-            height: 2px;
-            top: -1px;
-        }
-        #ch-top { top: -16px; }
-        #ch-bottom { bottom: -16px; }
-        #ch-left { left: -16px; }
-        #ch-right { right: -16px; }
-        #ch-center {
-            width: 4px;
-            height: 4px;
-            background-color: rgba(0, 255, 136, 1);
-            border-radius: 50%;
-            top: -2px;
-            left: -2px;
-        }
-        /* Efeito de Dano Vermelho na Tela */
-        #damage-flash {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 15;
-            pointer-events: none;
-            box-shadow: inset 0 0 0px rgba(239, 68, 68, 0);
-            transition: box-shadow 0.1s ease;
-        }
-        .damaged {
-            animation: flash-red 0.3s ease-out;
-        }
-        @keyframes flash-red {
-            0% { box-shadow: inset 0 0 100px rgba(239, 68, 68, 0.8); }
-            100% { box-shadow: inset 0 0 0px rgba(239, 68, 68, 0); }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VORTEX FPS</title>
+<style>
+  :root {
+    --neon: #00ffe7;
+    --red: #ff3c5a;
+    --orange: #ff8c00;
+    --bg: #0a0a0f;
+    --panel: rgba(10,10,20,0.85);
+    --font: 'Courier New', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:#fff; font-family:var(--font); overflow:hidden; }
+
+  /* ── SCREENS ── */
+  .screen { position:fixed; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; z-index:100; }
+  .screen.hidden { display:none; }
+
+  /* MENU */
+  #menuScreen {
+    background: radial-gradient(ellipse at 50% 40%, #0d1f2d 0%, #050508 70%);
+  }
+  .logo { font-size:clamp(3rem,10vw,7rem); font-weight:900; letter-spacing:.15em;
+    color:var(--neon); text-shadow:0 0 30px var(--neon),0 0 80px #00ffe744;
+    animation: pulse 2.5s ease-in-out infinite; }
+  .logo span { color:#fff; text-shadow:none; }
+  .tagline { font-size:.9rem; color:#aaa; letter-spacing:.4em; margin-bottom:3rem; }
+  @keyframes pulse { 0%,100%{text-shadow:0 0 20px var(--neon),0 0 60px #00ffe733}
+    50%{text-shadow:0 0 40px var(--neon),0 0 120px #00ffe766} }
+
+  .class-grid { display:flex; gap:1.2rem; margin-bottom:2.5rem; flex-wrap:wrap; justify-content:center; }
+  .class-card { background:var(--panel); border:2px solid #333; border-radius:12px;
+    padding:1.2rem 1.6rem; cursor:pointer; transition:.2s; min-width:130px; text-align:center; }
+  .class-card:hover, .class-card.selected { border-color:var(--neon); box-shadow:0 0 20px #00ffe733; }
+  .class-card .icon { font-size:2rem; margin-bottom:.4rem; }
+  .class-card .name { font-size:.85rem; font-weight:700; letter-spacing:.1em; }
+  .class-card .stats { font-size:.65rem; color:#888; margin-top:.3rem; }
+
+  .btn { padding:.9rem 3rem; font-family:var(--font); font-size:1rem; font-weight:700;
+    letter-spacing:.2em; border:2px solid var(--neon); background:transparent; color:var(--neon);
+    cursor:pointer; border-radius:6px; transition:.2s; text-transform:uppercase; }
+  .btn:hover { background:var(--neon); color:#000; box-shadow:0 0 30px var(--neon); }
+  .btn.red { border-color:var(--red); color:var(--red); }
+  .btn.red:hover { background:var(--red); color:#fff; box-shadow:0 0 30px var(--red); }
+
+  /* GAME OVER */
+  #gameoverScreen { background:rgba(0,0,0,.92); }
+  .go-title { font-size:clamp(2.5rem,8vw,5rem); color:var(--red);
+    text-shadow:0 0 40px var(--red); letter-spacing:.2em; margin-bottom:.5rem; }
+  .go-stats { display:grid; grid-template-columns:1fr 1fr; gap:.8rem 2rem;
+    margin:1.5rem 0 2.5rem; font-size:.9rem; color:#aaa; }
+  .go-stats span { color:#fff; font-size:1.1rem; }
+
+  /* ── CANVAS ── */
+  #canvas { display:block; position:fixed; inset:0; }
+
+  /* ── HUD ── */
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:50; }
+
+  /* crosshair */
+  #crosshair { position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%); width:30px; height:30px; }
+  #crosshair::before, #crosshair::after {
+    content:''; position:absolute; background:rgba(255,255,255,.85);
+    border-radius:2px; transition:.05s; }
+  #crosshair::before { width:2px; height:14px; top:50%; left:50%;
+    transform:translate(-50%,-50%); }
+  #crosshair::after { width:14px; height:2px; top:50%; left:50%;
+    transform:translate(-50%,-50%); }
+  #crosshair.shoot::before, #crosshair.shoot::after { background:var(--red); }
+  #crosshair.sniper { display:none; }
+
+  /* panels */
+  .hud-panel { background:var(--panel); border:1px solid #ffffff18;
+    border-radius:8px; padding:.5rem .8rem; backdrop-filter:blur(8px); }
+
+  #healthBar { position:absolute; bottom:1.5rem; left:1.5rem; display:flex;
+    align-items:center; gap:.8rem; }
+  #healthBar .label { font-size:.65rem; color:#888; letter-spacing:.1em; }
+  #healthBar .bar { width:160px; height:8px; background:#222; border-radius:4px; overflow:hidden; }
+  #healthBar .fill { height:100%; background:linear-gradient(90deg,var(--red),var(--orange));
+    border-radius:4px; transition:.15s; }
+  #healthBar .val { font-size:1rem; font-weight:700; min-width:2ch; }
+
+  #ammoBox { position:absolute; bottom:1.5rem; right:1.5rem; text-align:right; }
+  #ammoBox .ammo-cur { font-size:2rem; font-weight:900; color:var(--neon);
+    text-shadow:0 0 12px var(--neon); line-height:1; }
+  #ammoBox .ammo-max { font-size:.75rem; color:#888; }
+  #ammoBox .weapon-name { font-size:.65rem; color:#aaa; letter-spacing:.15em; margin-bottom:.2rem; }
+  #reloadMsg { position:absolute; bottom:5rem; right:1.5rem; color:var(--orange);
+    font-size:.8rem; letter-spacing:.2em; animation:blink .5s step-end infinite; display:none; }
+  @keyframes blink { 50%{opacity:0} }
+
+  #scoreBox { position:absolute; top:1.5rem; right:1.5rem; text-align:right; }
+  #scoreBox .kills { font-size:1.4rem; font-weight:700; color:var(--neon); }
+  #scoreBox .sub { font-size:.65rem; color:#888; letter-spacing:.1em; }
+
+  #fpsBox { position:absolute; top:1.5rem; left:1.5rem; font-size:.65rem; color:#555; }
+
+  /* minimap */
+  #minimap { position:absolute; top:1.5rem; left:50%; transform:translateX(-50%);
+    width:100px; height:100px; border-radius:8px; overflow:hidden;
+    border:1px solid #ffffff22; }
+  #minimapCanvas { width:100%; height:100%; }
+
+  /* kill feed */
+  #killfeed { position:absolute; top:5rem; right:1.5rem; display:flex;
+    flex-direction:column; gap:.3rem; align-items:flex-end; }
+  .kf-entry { font-size:.7rem; background:rgba(0,0,0,.6); padding:.25rem .6rem;
+    border-radius:4px; border-left:3px solid var(--red); animation:fadeOut 3s forwards; }
+  .kf-entry.head { border-color:gold; }
+  @keyframes fadeOut { 0%,70%{opacity:1} 100%{opacity:0} }
+
+  /* damage flash */
+  #damageFlash { position:fixed; inset:0; pointer-events:none; z-index:60;
+    background:radial-gradient(ellipse at center, transparent 40%, var(--red) 100%);
+    opacity:0; transition:.08s; }
+
+  /* hit marker */
+  #hitMarker { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:20px; height:20px; opacity:0; transition:.1s; }
+  #hitMarker::before, #hitMarker::after {
+    content:''; position:absolute; background:var(--red); border-radius:1px; }
+  #hitMarker::before { width:2px; height:8px; top:0; left:9px; }
+  #hitMarker::after { width:8px; height:2px; top:9px; left:0; }
+
+  /* weapon sway */
+  #weaponView { position:fixed; bottom:0; right:0; width:300px; height:200px;
+    pointer-events:none; z-index:55; }
+  #weaponCanvas { width:100%; height:100%; }
+
+  /* notifications */
+  #notify { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-size:1.2rem; color:gold; text-shadow:0 0 20px gold; opacity:0;
+    transition:.3s; pointer-events:none; letter-spacing:.2em; text-align:center; }
+  #notify.show { opacity:1; }
+
+  /* controls hint */
+  #controls { position:absolute; bottom:1.5rem; left:50%; transform:translateX(-50%);
+    font-size:.6rem; color:#444; letter-spacing:.1em; text-align:center; }
+</style>
 </head>
 <body>
 
-    <!-- CONTAINER DO CANVAS 3D -->
-    <div id="canvas-container"></div>
-
-    <!-- FLASH DE DANO -->
-    <div id="damage-flash"></div>
-
-    <!-- MIRA CENTRAL DINÂMICA -->
-    <div id="crosshair">
-        <div id="ch-center" class="crosshair-line"></div>
-        <div id="ch-top" class="crosshair-line ch-vertical"></div>
-        <div id="ch-bottom" class="crosshair-line ch-vertical"></div>
-        <div id="ch-left" class="crosshair-line ch-horizontal"></div>
-        <div id="ch-right" class="crosshair-line ch-horizontal"></div>
+<!-- MENU -->
+<div id="menuScreen" class="screen">
+  <div class="logo">VORTEX<span>FPS</span></div>
+  <div class="tagline">// ARENA SHOOTER //</div>
+  <div class="class-grid">
+    <div class="class-card selected" data-class="assault" onclick="selectClass(this,'assault')">
+      <div class="icon">🪖</div>
+      <div class="name">ASSAULT</div>
+      <div class="stats">HP: 100 | RIFLE</div>
     </div>
-
-    <!-- HUD DO JOGO (INTERAÇÃO REAL-TIME) -->
-    <div id="hud" class="absolute top-0 left-0 w-full h-full pointer-events-none z-20 hidden">
-        <!-- Superior Esquerdo: Informações do Servidor & FPS -->
-        <div class="absolute top-4 left-4 flex flex-col gap-1 text-white bg-black/40 backdrop-blur-md p-3 rounded-lg border border-white/10 text-xs font-mono">
-            <div class="flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>SERVIDOR: <span class="text-emerald-400 font-bold">SP-LOCAL-1</span></span>
-            </div>
-            <div>LATÊNCIA: <span class="text-emerald-400 font-bold" id="ping-val">12ms</span></div>
-            <div>FPS: <span class="text-cyan-400 font-bold" id="fps-val">60</span></div>
-            <div class="text-[10px] text-gray-400 mt-1">Multiplayer ready (WebSocket Dev)</div>
-        </div>
-
-        <!-- Superior Direito: Placar / Kills -->
-        <div class="absolute top-4 right-4 flex items-center gap-4 text-white bg-black/40 backdrop-blur-md p-4 rounded-xl border border-white/10">
-            <div class="text-center px-2">
-                <div class="text-xs text-gray-400 font-semibold tracking-wider">ELIMINAÇÕES</div>
-                <div class="text-3xl font-black text-amber-400" id="kills-val">0</div>
-            </div>
-            <div class="h-8 w-[1px] bg-white/20"></div>
-            <div class="text-center px-2">
-                <div class="text-xs text-gray-400 font-semibold tracking-wider">PONTOS</div>
-                <div class="text-3xl font-black text-cyan-400" id="score-val">0</div>
-            </div>
-        </div>
-
-        <!-- Superior Centro: Feed de Killings (Simulado + Real) -->
-        <div class="absolute top-6 left-1/2 -translate-x-1/2 flex flex-col gap-1 items-center max-w-xs text-xs font-semibold text-white pointer-events-none" id="kill-feed">
-            <!-- Mensagens de eliminação aparecerão aqui temporariamente -->
-        </div>
-
-        <!-- Minimapa (Canto Superior Direito, abaixo do placar) -->
-        <div class="absolute top-28 right-4 bg-black/60 border border-white/20 rounded-xl overflow-hidden p-1 backdrop-blur-md">
-            <canvas id="minimap" class="w-32 h-32"></canvas>
-        </div>
-
-        <!-- Inferior Esquerdo: Vida -->
-        <div class="absolute bottom-6 left-6 flex flex-col gap-1 bg-black/40 backdrop-blur-md p-4 rounded-2xl border border-white/10 min-w-[220px]">
-            <div class="flex justify-between items-end text-white font-mono">
-                <span class="text-sm font-bold text-gray-300">HP</span>
-                <span class="text-4xl font-black text-emerald-400" id="hp-val">100</span>
-            </div>
-            <div class="w-full bg-gray-900 h-3.5 rounded-full overflow-hidden mt-1 border border-white/5">
-                <div class="bg-gradient-to-r from-emerald-500 to-green-400 h-full transition-all duration-100" id="hp-bar" style="width: 100%;"></div>
-            </div>
-        </div>
-
-        <!-- Inferior Direito: Munição & Arma Ativa -->
-        <div class="absolute bottom-6 right-6 flex items-center gap-4 bg-black/40 backdrop-blur-md p-4 rounded-2xl border border-white/10 min-w-[200px]">
-            <div class="flex-1 text-right">
-                <div class="text-xs text-gray-400 font-bold tracking-widest uppercase" id="weapon-name">RIFLE DE ASSALTO</div>
-                <div class="text-white font-mono flex items-baseline justify-end gap-1">
-                    <span class="text-4xl font-black text-amber-400" id="ammo-clip">30</span>
-                    <span class="text-xl text-gray-400">/</span>
-                    <span class="text-xl text-gray-400" id="ammo-reserve">90</span>
-                </div>
-            </div>
-            <div class="flex items-center justify-center w-14 h-14 rounded-xl bg-white/5 text-white" id="weapon-icon-container">
-                <!-- Ícone representativo ou sigla da arma -->
-                <span class="text-xl font-black" id="weapon-symbol">AR</span>
-            </div>
-        </div>
-
-        <!-- Inferior Centro: Indicador de Recarga/Aviso -->
-        <div class="absolute bottom-28 left-1/2 -translate-x-1/2 text-center text-amber-400 font-bold text-sm tracking-widest uppercase animate-bounce hidden" id="reload-warning">
-            Aperte [R] para Recarregar
-        </div>
-
-        <!-- Controles para Celular (Ocultos por padrão se não for touch) -->
-        <div id="touch-controls" class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-8 pointer-events-auto z-30 hidden">
-            <button class="w-16 h-16 rounded-full bg-white/20 active:bg-white/40 border border-white/30 text-white font-bold flex items-center justify-center text-xs backdrop-blur-sm" id="btn-shoot">ATIRAR</button>
-            <button class="w-16 h-16 rounded-full bg-white/20 active:bg-white/40 border border-white/30 text-white font-bold flex items-center justify-center text-xs backdrop-blur-sm" id="btn-jump">PULAR</button>
-            <button class="w-16 h-16 rounded-full bg-white/20 active:bg-white/40 border border-white/30 text-white font-bold flex items-center justify-center text-xs backdrop-blur-sm" id="btn-reload">RECARGA</button>
-        </div>
+    <div class="class-card" data-class="sniper" onclick="selectClass(this,'sniper')">
+      <div class="icon">🎯</div>
+      <div class="name">SNIPER</div>
+      <div class="stats">HP: 80 | SNIPER</div>
     </div>
-
-    <!-- TELA DE MENU INICIAL / SELEÇÃO DE CLASSE -->
-    <div id="main-menu" class="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 z-30 flex flex-col justify-between p-8 md:p-12">
-        <!-- Logo e Cabeçalho -->
-        <div class="flex justify-between items-center w-full">
-            <div class="flex items-center gap-3">
-                <div class="bg-indigo-600 text-white p-2.5 rounded-xl font-black text-2xl shadow-lg shadow-indigo-500/30 tracking-wider">PS</div>
-                <h1 class="text-white font-extrabold text-2xl tracking-widest">POLY<span class="text-indigo-500">STRIKE 3D</span></h1>
-            </div>
-            <div class="text-xs text-slate-400 font-mono bg-slate-900/80 px-3 py-1.5 rounded-full border border-white/5">v1.2.5 (STABLE)</div>
-        </div>
-
-        <!-- Painel Central: Seleção de Classe e Ação -->
-        <div class="flex flex-col lg:flex-row gap-8 max-w-5xl mx-auto w-full justify-center items-center my-auto">
-            
-            <!-- Esquerda: Seleção de Classes -->
-            <div class="w-full lg:w-1/2 flex flex-col gap-4">
-                <h2 class="text-slate-300 font-bold text-lg tracking-wide">ESCOLHA SUA CLASSE:</h2>
-                
-                <!-- Classe 1: Assalto (Rifle) -->
-                <div id="class-assault" class="class-card bg-slate-900/60 hover:bg-slate-800/80 p-4 rounded-xl border-2 border-indigo-500 cursor-pointer transition-all flex justify-between items-center" onclick="selectClass('assault')">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center text-indigo-400 font-black text-xl">AR</div>
-                        <div>
-                            <h3 class="text-white font-bold text-base">Atirador de Assalto</h3>
-                            <p class="text-xs text-slate-400">Rifle de assalto balanceado. Médio e longo alcance.</p>
-                        </div>
-                    </div>
-                    <div class="text-right text-xs font-mono text-indigo-400 font-bold">Munição: 30/90</div>
-                </div>
-
-                <!-- Classe 2: Sniper (Fuzil de Precisão) -->
-                <div id="class-sniper" class="class-card bg-slate-950/40 hover:bg-slate-800/40 p-4 rounded-xl border-2 border-transparent hover:border-indigo-500/30 cursor-pointer transition-all flex justify-between items-center" onclick="selectClass('sniper')">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-rose-500/20 rounded-lg flex items-center justify-center text-rose-400 font-black text-xl">SR</div>
-                        <div>
-                            <h3 class="text-white font-bold text-base">Atirador de Elite (Sniper)</h3>
-                            <p class="text-xs text-slate-400">Sniper de ferrolho. Dano extremo na cabeça.</p>
-                        </div>
-                    </div>
-                    <div class="text-right text-xs font-mono text-rose-400 font-bold">Munição: 5/15</div>
-                </div>
-
-                <!-- Classe 3: Caçador (Pistola Ágil / Velocidade) -->
-                <div id="class-hunter" class="class-card bg-slate-950/40 hover:bg-slate-800/40 p-4 rounded-xl border-2 border-transparent hover:border-indigo-500/30 cursor-pointer transition-all flex justify-between items-center" onclick="selectClass('hunter')">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-cyan-500/20 rounded-lg flex items-center justify-center text-cyan-400 font-black text-xl">PT</div>
-                        <div>
-                            <h3 class="text-white font-bold text-base">Mercenário Ágil</h3>
-                            <p class="text-xs text-slate-400">Pistola leve de alta precisão. Movimentação veloz.</p>
-                        </div>
-                    </div>
-                    <div class="text-right text-xs font-mono text-cyan-400 font-bold">Munição: 15/45</div>
-                </div>
-            </div>
-
-            <!-- Direita: Como jogar e Botão Start -->
-            <div class="w-full lg:w-1/2 bg-slate-900/40 border border-white/5 p-6 rounded-2xl flex flex-col justify-between h-full min-h-[300px]">
-                <div>
-                    <h2 class="text-white font-bold text-xl mb-4 tracking-wide">COMO JOGAR</h2>
-                    <ul class="text-slate-400 text-sm space-y-2 font-medium">
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">WASD</span> Movimentação</li>
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">MOUSE</span> Mover câmera</li>
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">CLIQUE ESQ.</span> Disparar</li>
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">SHIFT L.</span> Correr velozmente</li>
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">ESPAÇO</span> Pular</li>
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">R</span> Recarregar munição</li>
-                    </ul>
-                </div>
-
-                <div class="mt-6">
-                    <button id="btn-play" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-black py-4 rounded-xl shadow-lg shadow-indigo-600/30 transition-all text-center tracking-widest text-lg uppercase">
-                        ENTRAR NO COMBATE
-                    </button>
-                    <p class="text-center text-slate-500 text-[10px] mt-2">Clique para travar o cursor do mouse e iniciar o jogo.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Rodapé do Menu -->
-        <div class="flex flex-col md:flex-row justify-between items-center text-slate-500 text-xs gap-2 border-t border-white/5 pt-4">
-            <div>Inspirado no estilo competitivo Low-Poly / Krunker</div>
-            <div class="flex gap-4">
-                <a href="#" class="hover:text-slate-300 transition">GitHub</a>
-                <a href="#" class="hover:text-slate-300 transition">Configurações</a>
-                <a href="#" class="hover:text-slate-300 transition">Créditos</a>
-            </div>
-        </div>
+    <div class="class-card" data-class="tank" onclick="selectClass(this,'tank')">
+      <div class="icon">🛡️</div>
+      <div class="name">TANK</div>
+      <div class="stats">HP: 150 | PISTOL</div>
     </div>
+  </div>
+  <button class="btn" onclick="startGame()">▶ JOGAR</button>
+  <div style="margin-top:1rem;font-size:.65rem;color:#555;letter-spacing:.15em">
+    WASD · MOUSE · ESPAÇO · SHIFT · R · 1/2/3
+  </div>
+</div>
 
-    <!-- TELA DE GAME OVER -->
-    <div id="game-over-screen" class="absolute top-0 left-0 w-full h-full bg-black/95 z-35 flex-col items-center justify-center p-8 hidden">
-        <div class="bg-gradient-to-b from-red-950 to-slate-950 border-2 border-red-500/30 p-8 rounded-3xl max-w-md w-full text-center flex flex-col items-center gap-6 shadow-2xl shadow-red-500/10">
-            <div class="w-16 h-16 bg-red-500/10 border border-red-500/30 rounded-full flex items-center justify-center text-red-500 text-3xl font-black">💀</div>
-            <div>
-                <h1 class="text-red-500 font-black text-3xl tracking-widest uppercase">VOCÊ FOI ELIMINADO</h1>
-                <p class="text-slate-400 text-sm mt-1">Sua pontuação final no combate</p>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4 w-full bg-black/40 p-4 rounded-2xl border border-white/5">
-                <div class="text-center">
-                    <div class="text-xs text-slate-400">ELIMINAÇÕES</div>
-                    <div class="text-3xl font-black text-amber-400" id="go-kills">0</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-xs text-slate-400">PONTUAÇÃO</div>
-                    <div class="text-3xl font-black text-cyan-400" id="go-score">0</div>
-                </div>
-            </div>
-
-            <button id="btn-restart" class="w-full bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white font-extrabold py-3.5 rounded-xl transition-all uppercase tracking-widest">
-                RESPAWNAR NOVO ROUND
-            </button>
-        </div>
+<!-- GAME OVER -->
+<div id="gameoverScreen" class="screen hidden">
+  <div class="go-title">ELIMINADO</div>
+  <div class="hud-panel">
+    <div class="go-stats">
+      <div>KILLS</div><div><span id="goKills">0</span></div>
+      <div>HEADSHOTS</div><div><span id="goHeads">0</span></div>
+      <div>PRECISÃO</div><div><span id="goAcc">0</span>%</div>
+      <div>TEMPO</div><div><span id="goTime">0</span>s</div>
     </div>
-
-    <!-- SCRIPT DE ÁUDIO & JOGO COMPLETO -->
-    <script>
-        // --- 1. WEB AUDIO API - Efeitos Sonoros Gerados Dinamicamente ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-        function playSound(type) {
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            if (type === 'shoot_assault') {
-                // Som de fuzil de assalto
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(320, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.12);
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.13);
-            } else if (type === 'shoot_sniper') {
-                // Som de Sniper (mais grave e forte)
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.45);
-                gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.45);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.46);
-            } else if (type === 'shoot_pistol') {
-                // Som de pistola
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(450, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.08);
-                gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.09);
-            } else if (type === 'reload') {
-                // Som de recarga de arma (dois cliques mecânicos)
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.12);
-                
-                setTimeout(() => {
-                    const osc2 = audioCtx.createOscillator();
-                    const gain2 = audioCtx.createGain();
-                    osc2.connect(gain2);
-                    gain2.connect(audioCtx.destination);
-                    osc2.type = 'sine';
-                    osc2.frequency.setValueAtTime(1000, audioCtx.currentTime);
-                    gain2.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                    gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                    osc2.start();
-                    osc2.stop(audioCtx.currentTime + 0.12);
-                }, 200);
-            } else if (type === 'footstep') {
-                // Som curto de passos na arena
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(80, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.05);
-                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.06);
-            } else if (type === 'hit') {
-                // Som de acerto/dano no inimigo (hitmarker)
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.06);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.07);
-            } else if (type === 'hurt') {
-                // Som de jogador recebendo dano
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(110, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.2);
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.21);
-            }
-        }
-
-        // --- 2. CONFIGURAÇÕES DAS CLASSES ---
-        const CLASSES = {
-            assault: {
-                name: "RIFLE DE ASSALTO",
-                symbol: "AR",
-                maxAmmo: 30,
-                reserveAmmo: 90,
-                damage: 22,
-                headshotMult: 1.8,
-                fireRate: 150, // ms entre tiros
-                speed: 0.13,
-                reloadTime: 1200,
-                sound: 'shoot_assault',
-                color: 0x4f46e5 // Indigo
-            },
-            sniper: {
-                name: "FUZIL PRECISÃO",
-                symbol: "SR",
-                maxAmmo: 5,
-                reserveAmmo: 15,
-                damage: 85,
-                headshotMult: 3.0,
-                fireRate: 900,
-                speed: 0.11,
-                reloadTime: 2000,
-                sound: 'shoot_sniper',
-                color: 0xf43f5e // Rose
-            },
-            hunter: {
-                name: "PISTOLA ÁGIL",
-                symbol: "PT",
-                maxAmmo: 15,
-                reserveAmmo: 45,
-                damage: 35,
-                headshotMult: 2.0,
-                fireRate: 250,
-                speed: 0.16,
-                reloadTime: 900,
-                sound: 'shoot_pistol',
-                color: 0x06b6d4 // Cyan
-            }
-        };
-
-        let currentClass = CLASSES.assault;
-
-        function selectClass(className) {
-            currentClass = CLASSES[className];
-            document.querySelectorAll('.class-card').forEach(card => {
-                card.classList.remove('border-indigo-500', 'bg-slate-800/80');
-                card.classList.add('border-transparent', 'bg-slate-950/40');
-            });
-            const activeCard = document.getElementById(`class-${className}`);
-            activeCard.classList.remove('border-transparent', 'bg-slate-950/40');
-            activeCard.classList.add('border-indigo-500', 'bg-slate-800/80');
-        }
-
-        // --- 3. VARIÁVEIS DO MOTOR DO JOGO (Three.js) ---
-        let scene, camera, renderer;
-        let clock = new THREE.Clock();
-        let walls = [];
-        let platforms = [];
-        let enemies = [];
-        let particles = [];
-        let gameActive = false;
-
-        // Atributos do Jogador
-        let player = {
-            hp: 100,
-            maxHp: 100,
-            score: 0,
-            kills: 0,
-            ammo: 30,
-            reserve: 90,
-            position: new THREE.Vector3(0, 2, 0),
-            velocity: new THREE.Vector3(),
-            speedMultiplier: 1,
-            isSprinting: false,
-            canShoot: true,
-            isReloading: false,
-            height: 2.2,
-            isJumping: false,
-            onGround: true
-        };
-
-        // Inputs e Pointer Lock
-        let keys = {};
-        let moveForward = false;
-        let moveBackward = false;
-        let moveLeft = false;
-        let moveRight = false;
-        let isSprinting = false;
-
-        // Câmera Pitch e Yaw (Pointer Lock)
-        let pitchObject = new THREE.Object3D();
-        let yawObject = new THREE.Object3D();
-        yawObject.add(pitchObject);
-
-        // Arma do Jogador (Mesh 3D visual)
-        let weaponMesh;
-        let lastTimeShot = 0;
-
-        // Minimap
-        const minimapCanvas = document.getElementById('minimap');
-        const minimapCtx = minimapCanvas.getContext('2d');
-        minimapCanvas.width = 128;
-        minimapCanvas.height = 128;
-
-        // FPS counter
-        let lastFpsUpdate = 0;
-        let framesCount = 0;
-
-        // --- 4. CONFIGURAÇÃO DA CENA ---
-        function initEngine() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0e1726);
-            scene.fog = new THREE.FogExp2(0x0e1726, 0.015);
-
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            pitchObject.add(camera);
-            scene.add(yawObject);
-            yawObject.position.set(0, player.height, 0);
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-            // Luzes
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-            scene.add(ambientLight);
-
-            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4);
-            hemiLight.position.set(0, 200, 0);
-            scene.add(hemiLight);
-
-            const sunLight = new THREE.DirectionalLight(0xa5b4fc, 0.8);
-            sunLight.position.set(10, 40, 20);
-            sunLight.castShadow = true;
-            sunLight.shadow.mapSize.width = 2048;
-            sunLight.shadow.mapSize.height = 2048;
-            sunLight.shadow.camera.near = 0.5;
-            sunLight.shadow.camera.far = 150;
-            const d = 50;
-            sunLight.shadow.camera.left = -d;
-            sunLight.shadow.camera.right = d;
-            sunLight.shadow.camera.top = d;
-            sunLight.shadow.camera.bottom = -d;
-            scene.add(sunLight);
-
-            // Criar o Mapa
-            buildArena();
-
-            // Event Listeners de Resizing
-            window.addEventListener('resize', onWindowResize);
-
-            // Ajustar UI de toque caso necessário
-            if ('ontouchstart' in window) {
-                document.getElementById('touch-controls').classList.remove('hidden');
-            }
-        }
-
-        // --- 5. MONTAGEM DA ARENA (Estilo Low Poly / Boxy) ---
-        function buildArena() {
-            // Chão (Grid colorido minimalista)
-            const floorGeo = new THREE.PlaneGeometry(160, 160);
-            const floorMat = new THREE.MeshStandardMaterial({ 
-                color: 0x1e293b, 
-                roughness: 0.8,
-                metalness: 0.2
-            });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = true;
-            scene.add(floor);
-
-            // Adiciona grade visual no chão
-            const grid = new THREE.GridHelper(160, 40, 0x4f46e5, 0x334155);
-            grid.position.y = 0.01;
-            scene.add(grid);
-
-            // Paredes limites (Arena fechada 80x80)
-            const wallMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
-            const borderWallGeo = new THREE.BoxGeometry(160, 12, 2);
-
-            // Norte
-            createStaticObstacle(borderWallGeo, wallMat, 0, 6, -80);
-            // Sul
-            createStaticObstacle(borderWallGeo, wallMat, 0, 6, 80);
-            
-            const borderWallGeoY = new THREE.BoxGeometry(2, 12, 160);
-            // Leste
-            createStaticObstacle(borderWallGeoY, wallMat, 80, 6, 0);
-            // Oeste
-            createStaticObstacle(borderWallGeoY, wallMat, -80, 6, 0);
-
-            // Estruturas Internas (Pilares, Plataformas e Caixas)
-            const pilarGeo = new THREE.BoxGeometry(4, 15, 4);
-            const pilarMat = new THREE.MeshStandardMaterial({ color: 0x4338ca, roughness: 0.5 }); // Indigo Pillars
-            const positions = [
-                [-20, -20], [-20, 20], [20, -20], [20, 20],
-                [-40, 0], [40, 0], [0, -40], [0, 40]
-            ];
-            positions.forEach(pos => {
-                createStaticObstacle(pilarGeo, pilarMat, pos[0], 7.5, pos[1]);
-            });
-
-            // Caixas Espalhadas (Estilo Krunker)
-            const boxGeo = new THREE.BoxGeometry(4, 4, 4);
-            const boxMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.6 }); // Orange Crates
-            const boxPositions = [
-                [-15, -15, 2], [15, -15, 2], [15, 15, 2], [-15, 15, 2],
-                [-5, -5, 2], [5, 5, 2], [25, 0, 2], [-25, 12, 2], [12, -28, 2],
-                [-30, -30, 2], [30, 30, 2], [0, 25, 2]
-            ];
-            boxPositions.forEach(p => {
-                createStaticObstacle(boxGeo, boxMat, p[0], p[2], p[1]);
-            });
-
-            // Rampas e Áreas Elevadas
-            const platGeo = new THREE.BoxGeometry(16, 1, 16);
-            const platMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.7 }); // Emerald Platforms
-            createStaticObstacle(platGeo, platMat, 0, 4, 0); // Plataforma Central
-
-            // Subidas para a central
-            const rampGeo = new THREE.BoxGeometry(6, 0.5, 12);
-            const ramp = new THREE.Mesh(rampGeo, platMat);
-            ramp.position.set(0, 2, -10);
-            ramp.rotation.x = 0.3; // Rampa inclinada
-            scene.add(ramp);
-            platforms.push(ramp);
-        }
-
-        function createStaticObstacle(geometry, material, x, y, z) {
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(x, y, z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            scene.add(mesh);
-            walls.push(mesh);
-            return mesh;
-        }
-
-        // --- 6. ARMA NA TELA DO JOGADOR (Visual FPS) ---
-        function createWeapon() {
-            if (weaponMesh) {
-                pitchObject.remove(weaponMesh);
-            }
-
-            // Grupo da arma acoplado ao Pitch (segue a visão)
-            weaponMesh = new THREE.Group();
-
-            const weaponBodyGeo = new THREE.BoxGeometry(0.12, 0.15, 0.7);
-            const weaponMat = new THREE.MeshStandardMaterial({ color: currentClass.color, metalness: 0.8, roughness: 0.2 });
-            const body = new THREE.Mesh(weaponBodyGeo, weaponMat);
-            body.position.set(0, 0, -0.3);
-            weaponMesh.add(body);
-
-            // Cano da arma
-            const barrelGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.4);
-            const barrelMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.9 });
-            const barrel = new THREE.Mesh(barrelGeo, barrelMat);
-            barrel.rotation.x = Math.PI / 2;
-            barrel.position.set(0, 0.03, -0.7);
-            weaponMesh.add(barrel);
-
-            // Mira telescópica / Scope
-            const scopeGeo = new THREE.BoxGeometry(0.04, 0.04, 0.25);
-            const scope = new THREE.Mesh(scopeGeo, barrelMat);
-            scope.position.set(0, 0.11, -0.4);
-            weaponMesh.add(scope);
-
-            // Posiciona a arma no canto direito da tela (Estilo clássico FPS)
-            weaponMesh.position.set(0.3, -0.25, -0.5);
-            pitchObject.add(weaponMesh);
-        }
-
-        // --- 7. SISTEMA DE ENTRADA DO MOUSE (Pointer Lock) ---
-        const btnPlay = document.getElementById('btn-play');
-        const btnRestart = document.getElementById('btn-restart');
-        const mainMenu = document.getElementById('main-menu');
-        const gameOverScreen = document.getElementById('game-over-screen');
-        const hud = document.getElementById('hud');
-
-        btnPlay.addEventListener('click', startGame);
-        btnRestart.addEventListener('click', restartGame);
-
-        function startGame() {
-            document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
-            document.body.requestPointerLock();
-            
-            // Iniciar Áudio Context para os sons funcionarem
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-        }
-
-        function restartGame() {
-            player.hp = 100;
-            player.score = 0;
-            player.kills = 0;
-            player.ammo = currentClass.maxAmmo;
-            player.reserve = currentClass.reserveAmmo;
-            
-            // Limpa inimigos existentes
-            enemies.forEach(e => scene.remove(e.mesh));
-            enemies = [];
-
-            updateHud();
-            gameOverScreen.classList.add('hidden');
-            gameOverScreen.classList.remove('flex');
-            startGame();
-        }
-
-        document.addEventListener('pointerlockchange', () => {
-            if (document.pointerLockElement === document.body) {
-                // Jogo ativado
-                mainMenu.classList.add('hidden');
-                hud.classList.remove('hidden');
-                gameActive = true;
-                
-                // Configura arma com base na classe escolhida
-                player.ammo = currentClass.maxAmmo;
-                player.reserve = currentClass.reserveAmmo;
-                createWeapon();
-                updateHud();
-
-                // Gera horda inicial de inimigos
-                spawnEnemyWave(5);
-            } else {
-                // Jogo pausado / Fora de foco
-                if (player.hp > 0) {
-                    mainMenu.classList.remove('hidden');
-                    hud.classList.add('hidden');
-                    gameActive = false;
-                }
-            }
-        });
-
-        // Controles de Visão (Mouse Move)
-        document.addEventListener('mousemove', (e) => {
-            if (!gameActive) return;
-
-            const sensitivity = 0.0022;
-            yawObject.rotation.y -= e.movementX * sensitivity;
-            pitchObject.rotation.x -= e.movementY * sensitivity;
-
-            // Limitar ângulo vertical (não dar cambalhota de pescoço)
-            pitchObject.rotation.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, pitchObject.rotation.x));
-        });
-
-        // Eventos de Teclado (WASD + Outros)
-        document.addEventListener('keydown', (e) => {
-            keys[e.code] = true;
-            
-            if (e.code === 'KeyR' && !player.isReloading && player.ammo < currentClass.maxAmmo && player.reserve > 0) {
-                reloadWeapon();
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            keys[e.code] = false;
-        });
-
-        // Eventos de Toque / Touch adaptado para Mobile
-        document.getElementById('btn-shoot').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (gameActive) performShoot();
-        });
-        document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (gameActive && player.onGround) player.velocity.y = 8;
-        });
-        document.getElementById('btn-reload').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (gameActive && !player.isReloading) reloadWeapon();
-        });
-
-        // --- 8. SISTEMA DE TIRO & IMPACTOS (Partículas + Hitscan) ---
-        window.addEventListener('mousedown', (e) => {
-            if (!gameActive) return;
-            if (e.button === 0) { // Clique esquerdo
-                performShoot();
-            }
-        });
-
-        function performShoot() {
-            const now = performance.now();
-            if (now - lastTimeShot < currentClass.fireRate) return;
-            if (player.isReloading) return;
-            if (player.ammo <= 0) {
-                playSound('reload');
-                document.getElementById('reload-warning').classList.remove('hidden');
-                return;
-            }
-
-            lastTimeShot = now;
-            player.ammo--;
-            updateHud();
-
-            // Som de disparo específico
-            playSound(currentClass.sound);
-
-            // Animação de recuo rápido da arma (Muzzle kickback)
-            weaponMesh.position.z += 0.15;
-            weaponMesh.rotation.x -= 0.08;
-
-            // Flash de disparo (muzzle flash visual temporário)
-            createMuzzleFlash();
-
-            // Processar Hitscan via Raycaster da Câmera
-            const raycaster = new THREE.Raycaster();
-            const centerScreen = new THREE.Vector2(0, 0); // Centro da tela
-            raycaster.setFromCamera(centerScreen, camera);
-
-            // Alvos: Inimigos
-            const targets = enemies.map(e => e.mesh);
-            const intersects = raycaster.intersectObjects(targets, true);
-
-            if (intersects.length > 0) {
-                const hit = intersects[0];
-                const hitTargetMesh = hit.object;
-                
-                // Encontrar o objeto inimigo correspondente à mesh atingida
-                const enemy = enemies.find(e => e.mesh === hitTargetMesh || e.mesh.getObjectById(hitTargetMesh.id) || hitTargetMesh.parent === e.mesh);
-
-                if (enemy) {
-                    // Verificar se foi tiro na cabeça (headshot)
-                    const isHeadshot = hit.point.y - enemy.mesh.position.y > 1.2;
-                    let calculatedDamage = currentClass.damage;
-
-                    if (isHeadshot) {
-                        calculatedDamage = Math.round(calculatedDamage * currentClass.headshotMult);
-                        showKillFeedMessage("HEADSHOT!", "text-amber-400 font-extrabold scale-110");
-                    }
-
-                    enemy.hp -= calculatedDamage;
-                    playSound('hit');
-
-                    // Partículas de sangue do inimigo (vermelho neon)
-                    createImpactParticles(hit.point, 0xef4444);
-
-                    // Se inimigo morreu
-                    if (enemy.hp <= 0) {
-                        eliminateEnemy(enemy);
-                    }
-                } else {
-                    // Hit em parede/chão
-                    createImpactParticles(hit.point, 0xe2e8f0);
-                }
-            } else {
-                // Raycast contra paredes do cenário
-                const wallIntersects = raycaster.intersectObjects(walls);
-                if (wallIntersects.length > 0) {
-                    createImpactParticles(wallIntersects[0].point, 0xffd700); // Faíscas amarelas em paredes
-                }
-            }
-        }
-
-        // Flash do cano da arma
-        function createMuzzleFlash() {
-            const flashGeo = new THREE.PointLight(0xfff7ed, 3, 5);
-            flashGeo.position.set(0.3, -0.2, -1.2);
-            pitchObject.add(flashGeo);
-            setTimeout(() => {
-                pitchObject.remove(flashGeo);
-            }, 60);
-        }
-
-        // Criador de Partículas de Impacto
-        function createImpactParticles(point, color) {
-            const group = new THREE.Group();
-            const partGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
-            const partMat = new THREE.MeshBasicMaterial({ color: color });
-
-            for (let i = 0; i < 8; i++) {
-                const p = new THREE.Mesh(partGeo, partMat);
-                p.position.copy(point);
-                p.userData = {
-                    vx: (Math.random() - 0.5) * 5,
-                    vy: (Math.random() - 0.5) * 5 + 3,
-                    vz: (Math.random() - 0.5) * 5,
-                    life: 1.0
-                };
-                group.add(p);
-            }
-            scene.add(group);
-            particles.push(group);
-
-            setTimeout(() => {
-                scene.remove(group);
-                const idx = particles.indexOf(group);
-                if (idx > -1) particles.splice(idx, 1);
-            }, 600);
-        }
-
-        // Recarga de Munição
-        function reloadWeapon() {
-            player.isReloading = true;
-            playSound('reload');
-            document.getElementById('reload-warning').classList.add('hidden');
-            
-            // Simulação visual de recarga (inclinar arma)
-            const tl = setInterval(() => {
-                weaponMesh.rotation.z += 0.25;
-            }, 50);
-
-            setTimeout(() => {
-                clearInterval(tl);
-                weaponMesh.rotation.z = 0;
-
-                const needed = currentClass.maxAmmo - player.ammo;
-                const toLoad = Math.min(needed, player.reserve);
-                player.ammo += toLoad;
-                player.reserve -= toLoad;
-                player.isReloading = false;
-                updateHud();
-            }, currentClass.reloadTime);
-        }
-
-        // --- 9. INIMIGOS E INTELIGÊNCIA ARTIFICIAL (IA) ---
-        function spawnEnemyWave(count) {
-            for (let i = 0; i < count; i++) {
-                spawnEnemy();
-            }
-        }
-
-        function spawnEnemy() {
-            // Spawn fora do alcance visual imediato do player
-            let x, z;
-            do {
-                x = (Math.random() - 0.5) * 120;
-                z = (Math.random() - 0.5) * 120;
-            } while (player.position.distanceTo(new THREE.Vector3(x, 2, z)) < 25);
-
-            const enemyGroup = new THREE.Group();
-
-            // Corpo cilíndrico (Estilo boneco low poly)
-            const bodyGeo = new THREE.CylinderGeometry(0.8, 0.8, 2.5, 6);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 }); // Inimigos vermelhos
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.position.y = 1.25;
-            body.castShadow = true;
-            body.receiveShadow = true;
-            enemyGroup.add(body);
-
-            // Cabeça (ponto de tiro crítico de cor amarela)
-            const headGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
-            const headMat = new THREE.MeshStandardMaterial({ color: 0xfacc15 });
-            const head = new THREE.Mesh(headGeo, headMat);
-            head.position.y = 2.8;
-            head.castShadow = true;
-            enemyGroup.add(head);
-
-            enemyGroup.position.set(x, 0, z);
-            scene.add(enemyGroup);
-
-            enemies.push({
-                mesh: enemyGroup,
-                hp: 100,
-                maxHp: 100,
-                speed: 1.5 + Math.random() * 2, // velocidade variada para desafio
-                lastAttack: 0,
-                attackCooldown: 1200 // ms
-            });
-        }
-
-        function updateEnemies(delta) {
-            const playerPos = yawObject.position.clone();
-            playerPos.y = 0; // focar no plano horizontal
-
-            enemies.forEach(enemy => {
-                const enemyPos = enemy.mesh.position.clone();
-                enemyPos.y = 0;
-
-                // Direção em direção ao jogador
-                const dir = new THREE.Vector3().subVectors(playerPos, enemyPos).normalize();
-                
-                // Mover em direção ao jogador
-                enemy.mesh.position.addScaledVector(dir, enemy.speed * delta);
-                
-                // Rotacionar em direção ao jogador
-                enemy.mesh.lookAt(playerPos.x, enemy.mesh.position.y, playerPos.z);
-
-                // Verificar colisão e ataque corpo-a-corpo
-                const distance = enemy.mesh.position.distanceTo(yawObject.position);
-                if (distance < 3.0) {
-                    // Atacar o jogador
-                    const now = performance.now();
-                    if (now - enemy.lastAttack > enemy.attackCooldown) {
-                        enemy.lastAttack = now;
-                        damagePlayer(25); // Inimigo tira 25 de vida
-                    }
-                }
-            });
-        }
-
-        function eliminateEnemy(enemy) {
-            scene.remove(enemy.mesh);
-            const idx = enemies.indexOf(enemy);
-            if (idx > -1) enemies.splice(idx, 1);
-
-            player.kills++;
-            player.score += 150;
-            updateHud();
-
-            showKillFeedMessage("INIMIGO ELIMINADO [+150]", "text-emerald-400 font-bold");
-
-            // Respawn contínuo para manter a ação frenética
-            setTimeout(() => {
-                if (gameActive) spawnEnemy();
-            }, 3000);
-        }
-
-        // --- 10. ATUALIZAÇÕES DA HUD ---
-        function updateHud() {
-            document.getElementById('hp-val').innerText = Math.max(0, Math.round(player.hp));
-            document.getElementById('hp-bar').style.width = `${Math.max(0, player.hp)}%`;
-            document.getElementById('kills-val').innerText = player.kills;
-            document.getElementById('score-val').innerText = player.score;
-            document.getElementById('ammo-clip').innerText = player.ammo;
-            document.getElementById('ammo-reserve').innerText = player.reserve;
-            document.getElementById('weapon-name').innerText = currentClass.name;
-            document.getElementById('weapon-symbol').innerText = currentClass.symbol;
-        }
-
-        function showKillFeedMessage(text, classes = "text-white") {
-            const feed = document.getElementById('kill-feed');
-            const el = document.createElement('div');
-            el.className = `bg-black/60 px-3 py-1 rounded border border-white/5 animate-pulse ${classes}`;
-            el.innerText = text;
-            feed.appendChild(el);
-            setTimeout(() => el.remove(), 2500);
-        }
-
-        function damagePlayer(amount) {
-            if (player.hp <= 0) return;
-            
-            player.hp -= amount;
-            playSound('hurt');
-            updateHud();
-
-            // Flash de dano vermelho na tela
-            const flash = document.getElementById('damage-flash');
-            flash.classList.add('damaged');
-            setTimeout(() => flash.classList.remove('damaged'), 300);
-
-            if (player.hp <= 0) {
-                triggerGameOver();
-            }
-        }
-
-        function triggerGameOver() {
-            gameActive = false;
-            document.exitPointerLock();
-            
-            document.getElementById('go-kills').innerText = player.kills;
-            document.getElementById('go-score').innerText = player.score;
-
-            gameOverScreen.classList.remove('hidden');
-            gameOverScreen.classList.add('flex');
-            hud.classList.add('hidden');
-        }
-
-        // --- 11. LOOP DE FÍSICA E COLISÃO ---
-        function checkCollisions() {
-            const playerRadius = 1.2;
-            const pos = yawObject.position;
-
-            // Restringir limites da arena 80x80
-            pos.x = Math.max(-78, Math.min(78, pos.x));
-            pos.z = Math.max(-78, Math.min(78, pos.z));
-
-            // Colisão AABB simples com as caixas e pilares da arena
-            walls.forEach(obstacle => {
-                const box = new THREE.Box3().setFromObject(obstacle);
-                
-                // Expande a caixa do obstáculo com o raio do jogador para teste de colisão
-                const playerBox = new THREE.Box3(
-                    new THREE.Vector3(pos.x - playerRadius, pos.y - player.height, pos.z - playerRadius),
-                    new THREE.Vector3(pos.x + playerRadius, pos.y + 0.2, pos.z + playerRadius)
-                );
-
-                if (box.intersectsBox(playerBox)) {
-                    // Empurrar jogador para fora da colisão baseando-se na menor penetração
-                    const overlapX = Math.min(box.max.x - playerBox.min.x, playerBox.max.x - box.min.x);
-                    const overlapZ = Math.min(box.max.z - playerBox.min.z, playerBox.max.z - box.min.z);
-
-                    if (overlapX < overlapZ) {
-                        if (pos.x < obstacle.position.x) {
-                            pos.x -= overlapX;
-                        } else {
-                            pos.x += overlapX;
-                        }
-                    } else {
-                        if (pos.z < obstacle.position.z) {
-                            pos.z -= overlapZ;
-                        } else {
-                            pos.z += overlapZ;
-                        }
-                    }
-                }
-            });
-        }
-
-        // --- 12. DESENHO DO MINIMAPA (2D Canvas) ---
-        function drawMinimap() {
-            minimapCtx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-            minimapCtx.fillRect(0, 0, 128, 128);
-
-            // Escala de conversão para caber arena 160x160 em canvas 128x128
-            const scale = 128 / 160;
-            const center = 64;
-
-            // Desenhar os obstáculos do mapa
-            minimapCtx.fillStyle = '#475569';
-            walls.forEach(w => {
-                const cx = center + w.position.x * scale;
-                const cz = center + w.position.z * scale;
-                minimapCtx.fillRect(cx - 2, cz - 2, 4, 4);
-            });
-
-            // Inimigos no Minimapa (Pontos vermelhos)
-            minimapCtx.fillStyle = '#ef4444';
-            enemies.forEach(e => {
-                const cx = center + e.mesh.position.x * scale;
-                const cz = center + e.mesh.position.z * scale;
-                minimapCtx.beginPath();
-                minimapCtx.arc(cx, cz, 2.5, 0, Math.PI * 2);
-                minimapCtx.fill();
-            });
-
-            // Jogador (Ponto verde com seta de direção)
-            const px = center + yawObject.position.x * scale;
-            const pz = center + yawObject.position.z * scale;
-            minimapCtx.fillStyle = '#10b981';
-            minimapCtx.beginPath();
-            minimapCtx.arc(px, pz, 3.5, 0, Math.PI * 2);
-            minimapCtx.fill();
-
-            // Linha de direção do jogador
-            minimapCtx.strokeStyle = '#10b981';
-            minimapCtx.lineWidth = 1.5;
-            minimapCtx.beginPath();
-            minimapCtx.moveTo(px, pz);
-            minimapCtx.lineTo(
-                px + Math.sin(yawObject.rotation.y) * 10,
-                pz + Math.cos(yawObject.rotation.y) * 10
-            );
-            minimapCtx.stroke();
-        }
-
-        // --- 13. LOOP PRINCIPAL DO JOGO (requestAnimationFrame) ---
-        function animate() {
-            requestAnimationFrame(animate);
-
-            const delta = clock.getDelta();
-
-            // Medidor de FPS
-            framesCount++;
-            const now = performance.now();
-            if (now - lastFpsUpdate >= 1000) {
-                document.getElementById('fps-val').innerText = framesCount;
-                framesCount = 0;
-                lastFpsUpdate = now;
-            }
-
-            if (gameActive) {
-                // Atualiza partículas ativas
-                particles.forEach(group => {
-                    group.children.forEach(p => {
-                        p.position.x += p.userData.vx * delta;
-                        p.position.y += p.userData.vy * delta;
-                        p.position.z += p.userData.vz * delta;
-                        p.userData.vy -= 9.8 * delta; // gravidade na partícula
-                    });
-                });
-
-                // Suavizar rotação e recuo da arma de volta ao normal
-                weaponMesh.position.z += ( -0.5 - weaponMesh.position.z ) * 0.1;
-                weaponMesh.rotation.x += ( 0 - weaponMesh.rotation.x ) * 0.1;
-
-                // Passos Sonoros Dinâmicos
-                if ((moveForward || moveBackward || moveLeft || moveRight) && player.onGround) {
-                    const cycle = Math.sin(performance.now() * (player.isSprinting ? 0.015 : 0.01));
-                    if (cycle > 0.95 && !player.footstepFlag) {
-                        playSound('footstep');
-                        player.footstepFlag = true;
-                    } else if (cycle < 0) {
-                        player.footstepFlag = false;
-                    }
-                }
-
-                // Processar movimentação e física do jogador
-                processMovement(delta);
-                
-                // IA dos inimigos
-                updateEnemies(delta);
-
-                // Desenha o minimapa
-                drawMinimap();
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        function processMovement(delta) {
-            // Coletar direção
-            moveForward = keys['KeyW'];
-            moveBackward = keys['KeyS'];
-            moveLeft = keys['KeyA'];
-            moveRight = keys['KeyD'];
-            player.isSprinting = keys['ShiftLeft'];
-
-            // Reduzir velocidade se estiver andando de lado/trás ou correndo
-            let speed = currentClass.speed;
-            if (player.isSprinting) speed *= 1.5;
-
-            // Retomar velocidade normal após gravidade
-            player.velocity.x -= player.velocity.x * 10.0 * delta;
-            player.velocity.z -= player.velocity.z * 10.0 * delta;
-
-            // Aplicar gravidade progressiva
-            player.velocity.y -= 9.8 * 2.2 * delta; 
-
-            const direction = new THREE.Vector3();
-            direction.z = Number(moveForward) - Number(moveBackward);
-            direction.x = Number(moveRight) - Number(moveLeft);
-            direction.normalize(); // Garante movimento diagonal uniforme
-
-            // Mapeia inputs de acordo com o Yaw do jogador
-            if (moveForward || moveBackward) player.velocity.z -= direction.z * speed * 250.0 * delta;
-            if (moveLeft || moveRight) player.velocity.x -= direction.x * speed * 250.0 * delta;
-
-            // Mover câmera de acordo com velocidades
-            yawObject.translateOnAxis(new THREE.Vector3(1, 0, 0), -player.velocity.x * delta);
-            yawObject.translateOnAxis(new THREE.Vector3(0, 0, 1), -player.velocity.z * delta);
-            yawObject.position.y += player.velocity.y * delta;
-
-            // Detecção básica de altura do chão (Arena plana no y=0 + plataformas)
-            let groundHeight = player.height;
-
-            // Plataforma Central (y=4) colisão superior
-            if (Math.abs(yawObject.position.x) < 8 && Math.abs(yawObject.position.z) < 8) {
-                groundHeight = 4 + player.height;
-            }
-
-            if (yawObject.position.y < groundHeight) {
-                player.velocity.y = 0;
-                yawObject.position.y = groundHeight;
-                player.onGround = true;
-            } else {
-                player.onGround = false;
-            }
-
-            // Ação de Pular
-            if (keys['Space'] && player.onGround) {
-                player.velocity.y = 10.5; // Força do pulo
-                player.onGround = false;
-            }
-
-            // Processar colisões com caixas e obstáculos
-            checkCollisions();
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.```html
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PolyStrike 3D - FPS Browser Game</title>
-    <!-- Tailwind CSS para estilização rápida da UI moderna -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Biblioteca Three.js para renderização 3D robusta -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            user-select: none;
-            -webkit-user-select: none;
-            background-color: #0b0f19;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        #canvas-container {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 10;
-        }
-        /* Mira crosshair dinâmica */
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 20;
-            pointer-events: none;
-            transition: all 0.1s ease;
-        }
-        .crosshair-line {
-            position: absolute;
-            background-color: rgba(0, 255, 136, 0.9);
-            box-shadow: 0 0 4px rgba(0, 255, 136, 0.6);
-        }
-        .ch-vertical {
-            width: 2px;
-            height: 14px;
-            left: -1px;
-        }
-        .ch-horizontal {
-            width: 14px;
-            height: 2px;
-            top: -1px;
-        }
-        #ch-top { top: -16px; }
-        #ch-bottom { bottom: -16px; }
-        #ch-left { left: -16px; }
-        #ch-right { right: -16px; }
-        #ch-center {
-            width: 4px;
-            height: 4px;
-            background-color: rgba(0, 255, 136, 1);
-            border-radius: 50%;
-            top: -2px;
-            left: -2px;
-        }
-        /* Efeito de Dano Vermelho na Tela */
-        #damage-flash {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 15;
-            pointer-events: none;
-            box-shadow: inset 0 0 0px rgba(239, 68, 68, 0);
-            transition: box-shadow 0.1s ease;
-        }
-        .damaged {
-            animation: flash-red 0.3s ease-out;
-        }
-        @keyframes flash-red {
-            0% { box-shadow: inset 0 0 100px rgba(239, 68, 68, 0.8); }
-            100% { box-shadow: inset 0 0 0px rgba(239, 68, 68, 0); }
-        }
-    </style>
-</head>
-<body>
-
-    <!-- CONTAINER DO CANVAS 3D -->
-    <div id="canvas-container"></div>
-
-    <!-- FLASH DE DANO -->
-    <div id="damage-flash"></div>
-
-    <!-- MIRA CENTRAL DINÂMICA -->
-    <div id="crosshair">
-        <div id="ch-center" class="crosshair-line"></div>
-        <div id="ch-top" class="crosshair-line ch-vertical"></div>
-        <div id="ch-bottom" class="crosshair-line ch-vertical"></div>
-        <div id="ch-left" class="crosshair-line ch-horizontal"></div>
-        <div id="ch-right" class="crosshair-line ch-horizontal"></div>
+  </div>
+  <button class="btn red" onclick="restartGame()">↺ REINICIAR</button>
+</div>
+
+<!-- CANVAS -->
+<canvas id="canvas"></canvas>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <!-- crosshair -->
+  <div id="crosshair"></div>
+  <!-- health -->
+  <div id="healthBar" class="hud-panel">
+    <div>
+      <div class="label">VIDA</div>
+      <div class="bar"><div class="fill" id="healthFill" style="width:100%"></div></div>
     </div>
+    <div class="val" id="healthVal">100</div>
+  </div>
+  <!-- ammo -->
+  <div id="ammoBox" class="hud-panel">
+    <div class="weapon-name" id="weaponName">RIFLE</div>
+    <div class="ammo-cur" id="ammoCur">30</div>
+    <div class="ammo-max">/ <span id="ammoMax">30</span></div>
+  </div>
+  <div id="reloadMsg">⟳ RECARREGANDO…</div>
+  <!-- score -->
+  <div id="scoreBox" class="hud-panel">
+    <div class="sub">KILLS</div>
+    <div class="kills" id="killsVal">0</div>
+  </div>
+  <!-- fps -->
+  <div id="fpsBox" class="hud-panel">
+    <span id="fpsVal">60</span> FPS
+  </div>
+  <!-- minimap -->
+  <div id="minimap" class="hud-panel">
+    <canvas id="minimapCanvas" width="100" height="100"></canvas>
+  </div>
+  <!-- killfeed -->
+  <div id="killfeed"></div>
+  <!-- hit marker -->
+  <div id="hitMarker"></div>
+  <!-- notify -->
+  <div id="notify"></div>
+  <!-- controls -->
+  <div id="controls">WASD · MOUSE · ESPAÇO · SHIFT · R · 1-3 · F11</div>
+</div>
 
-    <!-- HUD DO JOGO (INTERAÇÃO REAL-TIME) -->
-    <div id="hud" class="absolute top-0 left-0 w-full h-full pointer-events-none z-20 hidden">
-        <!-- Superior Esquerdo: Informações do Servidor & FPS -->
-        <div class="absolute top-4 left-4 flex flex-col gap-1 text-white bg-black/40 backdrop-blur-md p-3 rounded-lg border border-white/10 text-xs font-mono">
-            <div class="flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>SERVIDOR: <span class="text-emerald-400 font-bold">SP-LOCAL-1</span></span>
-            </div>
-            <div>LATÊNCIA: <span class="text-emerald-400 font-bold" id="ping-val">12ms</span></div>
-            <div>FPS: <span class="text-cyan-400 font-bold" id="fps-val">60</span></div>
-            <div class="text-[10px] text-gray-400 mt-1">Multiplayer ready (WebSocket Dev)</div>
-        </div>
+<!-- damage flash overlay -->
+<div id="damageFlash"></div>
+<!-- weapon view canvas -->
+<div id="weaponView"><canvas id="weaponCanvas" width="300" height="200"></canvas></div>
 
-        <!-- Superior Direito: Placar / Kills -->
-        <div class="absolute top-4 right-4 flex items-center gap-4 text-white bg-black/40 backdrop-blur-md p-4 rounded-xl border border-white/10">
-            <div class="text-center px-2">
-                <div class="text-xs text-gray-400 font-semibold tracking-wider">ELIMINAÇÕES</div>
-                <div class="text-3xl font-black text-amber-400" id="kills-val">0</div>
-            </div>
-            <div class="h-8 w-[1px] bg-white/20"></div>
-            <div class="text-center px-2">
-                <div class="text-xs text-gray-400 font-semibold tracking-wider">PONTOS</div>
-                <div class="text-3xl font-black text-cyan-400" id="score-val">0</div>
-            </div>
-        </div>
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  VORTEX FPS  —  Engine principal
+//  Estrutura: Config → Utils → Audio → Renderer → Physics →
+//             Weapons → Enemies → Player → Game → UI
+// ═══════════════════════════════════════════════════════════════
 
-        <!-- Superior Centro: Feed de Killings (Simulado + Real) -->
-        <div class="absolute top-6 left-1/2 -translate-x-1/2 flex flex-col gap-1 items-center max-w-xs text-xs font-semibold text-white pointer-events-none" id="kill-feed">
-            <!-- Mensagens de eliminação aparecerão aqui temporariamente -->
-        </div>
+// ── CONFIG ──────────────────────────────────────────────────────
+const CFG = {
+  FOV: Math.PI / 3,
+  MOVE_SPEED: 0.08,
+  RUN_MULT: 1.7,
+  JUMP_VEL: 0.18,
+  GRAVITY: 0.012,
+  PLAYER_HEIGHT: 0.6,
+  MAP_SIZE: 32,
+  ENEMY_COUNT: 6,
+  ENEMY_RESPAWN: 5000,
+  ENEMY_SPEED: 0.03,
+  ENEMY_SHOOT_RANGE: 12,
+  ENEMY_SHOOT_RATE: 2000,
+  ENEMY_DAMAGE: 12,
+};
 
-        <!-- Minimapa (Canto Superior Direito, abaixo do placar) -->
-        <div class="absolute top-28 right-4 bg-black/60 border border-white/20 rounded-xl overflow-hidden p-1 backdrop-blur-md">
-            <canvas id="minimap" class="w-32 h-32"></canvas>
-        </div>
+const WEAPONS = {
+  rifle:  { name:'RIFLE',  damage:25, hs:2,   ammo:30,  reserve:150, rof:120,  reload:2000, spread:.02, auto:true  },
+  sniper: { name:'SNIPER', damage:80, hs:3,   ammo:5,   reserve:30,  rof:1200, reload:3000, spread:.002,auto:false },
+  pistol: { name:'PISTOL', damage:35, hs:2.2, ammo:12,  reserve:60,  rof:300,  reload:1500, spread:.04, auto:false },
+};
 
-        <!-- Inferior Esquerdo: Vida -->
-        <div class="absolute bottom-6 left-6 flex flex-col gap-1 bg-black/40 backdrop-blur-md p-4 rounded-2xl border border-white/10 min-w-[220px]">
-            <div class="flex justify-between items-end text-white font-mono">
-                <span class="text-sm font-bold text-gray-300">HP</span>
-                <span class="text-4xl font-black text-emerald-400" id="hp-val">100</span>
-            </div>
-            <div class="w-full bg-gray-900 h-3.5 rounded-full overflow-hidden mt-1 border border-white/5">
-                <div class="bg-gradient-to-r from-emerald-500 to-green-400 h-full transition-all duration-100" id="hp-bar" style="width: 100%;"></div>
-            </div>
-        </div>
+const CLASSES = {
+  assault:{ hp:100, weapon:'rifle'  },
+  sniper: { hp:80,  weapon:'sniper' },
+  tank:   { hp:150, weapon:'pistol' },
+};
 
-        <!-- Inferior Direito: Munição & Arma Ativa -->
-        <div class="absolute bottom-6 right-6 flex items-center gap-4 bg-black/40 backdrop-blur-md p-4 rounded-2xl border border-white/10 min-w-[200px]">
-            <div class="flex-1 text-right">
-                <div class="text-xs text-gray-400 font-bold tracking-widest uppercase" id="weapon-name">RIFLE DE ASSALTO</div>
-                <div class="text-white font-mono flex items-baseline justify-end gap-1">
-                    <span class="text-4xl font-black text-amber-400" id="ammo-clip">30</span>
-                    <span class="text-xl text-gray-400">/</span>
-                    <span class="text-xl text-gray-400" id="ammo-reserve">90</span>
-                </div>
-            </div>
-            <div class="flex items-center justify-center w-14 h-14 rounded-xl bg-white/5 text-white" id="weapon-icon-container">
-                <!-- Ícone representativo ou sigla da arma -->
-                <span class="text-xl font-black" id="weapon-symbol">AR</span>
-            </div>
-        </div>
+// ── STATE ────────────────────────────────────────────────────────
+let state = 'menu'; // menu | playing | gameover
+let selectedClass = 'assault';
+let gl, canvas, ctx2d; // gl = WebGL context, ctx2d = 2D fallback
+let useGL = false;
 
-        <!-- Inferior Centro: Indicador de Recarga/Aviso -->
-        <div class="absolute bottom-28 left-1/2 -translate-x-1/2 text-center text-amber-400 font-bold text-sm tracking-widest uppercase animate-bounce hidden" id="reload-warning">
-            Aperte [R] para Recarregar
-        </div>
+// Player
+const player = {
+  x:0, y:0.6, z:0, yaw:0, pitch:0,
+  vx:0, vy:0, vz:0,
+  onGround:false, running:false,
+  hp:100, maxHp:100,
+  weapon:'rifle', ammo:30, reserve:150,
+  reloading:false, reloadTimer:0,
+  lastShot:0,
+  kills:0, headshots:0,
+  shots:0, hits:0,
+  startTime:0,
+};
 
-        <!-- Controles para Celular (Ocultos por padrão se não for touch) -->
-        <div id="touch-controls" class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-8 pointer-events-auto z-30 hidden">
-            <button class="w-16 h-16 rounded-full bg-white/20 active:bg-white/40 border border-white/30 text-white font-bold flex items-center justify-center text-xs backdrop-blur-sm" id="btn-shoot">ATIRAR</button>
-            <button class="w-16 h-16 rounded-full bg-white/20 active:bg-white/40 border border-white/30 text-white font-bold flex items-center justify-center text-xs backdrop-blur-sm" id="btn-jump">PULAR</button>
-            <button class="w-16 h-16 rounded-full bg-white/20 active:bg-white/40 border border-white/30 text-white font-bold flex items-center justify-center text-xs backdrop-blur-sm" id="btn-reload">RECARGA</button>
-        </div>
-    </div>
+// Input
+const keys = {};
+const mouse = { dx:0, dy:0, locked:false, buttons:{} };
 
-    <!-- TELA DE MENU INICIAL / SELEÇÃO DE CLASSE -->
-    <div id="main-menu" class="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 z-30 flex flex-col justify-between p-8 md:p-12">
-        <!-- Logo e Cabeçalho -->
-        <div class="flex justify-between items-center w-full">
-            <div class="flex items-center gap-3">
-                <div class="bg-indigo-600 text-white p-2.5 rounded-xl font-black text-2xl shadow-lg shadow-indigo-500/30 tracking-wider">PS</div>
-                <h1 class="text-white font-extrabold text-2xl tracking-widest">POLY<span class="text-indigo-500">STRIKE 3D</span></h1>
-            </div>
-            <div class="text-xs text-slate-400 font-mono bg-slate-900/80 px-3 py-1.5 rounded-full border border-white/5">v1.2.5 (STABLE)</div>
-        </div>
+// Enemies
+let enemies = [];
+let particles = [];
+let bulletTrails = [];
+let decals = [];
+let enemyIdCounter = 0;
 
-        <!-- Painel Central: Seleção de Classe e Ação -->
-        <div class="flex flex-col lg:flex-row gap-8 max-w-5xl mx-auto w-full justify-center items-center my-auto">
-            
-            <!-- Esquerda: Seleção de Classes -->
-            <div class="w-full lg:w-1/2 flex flex-col gap-4">
-                <h2 class="text-slate-300 font-bold text-lg tracking-wide">ESCOLHA SUA CLASSE:</h2>
-                
-                <!-- Classe 1: Assalto (Rifle) -->
-                <div id="class-assault" class="class-card bg-slate-900/60 hover:bg-slate-800/80 p-4 rounded-xl border-2 border-indigo-500 cursor-pointer transition-all flex justify-between items-center" onclick="selectClass('assault')">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center text-indigo-400 font-black text-xl">AR</div>
-                        <div>
-                            <h3 class="text-white font-bold text-base">Atirador de Assalto</h3>
-                            <p class="text-xs text-slate-400">Rifle de assalto balanceado. Médio e longo alcance.</p>
-                        </div>
-                    </div>
-                    <div class="text-right text-xs font-mono text-indigo-400 font-bold">Munição: 30/90</div>
-                </div>
+// Timing
+let lastTime = 0, deltaTime = 0, fps = 60;
+let fpsBuffer = [], fpsSample = 0;
 
-                <!-- Classe 2: Sniper (Fuzil de Precisão) -->
-                <div id="class-sniper" class="class-card bg-slate-950/40 hover:bg-slate-800/40 p-4 rounded-xl border-2 border-transparent hover:border-indigo-500/30 cursor-pointer transition-all flex justify-between items-center" onclick="selectClass('sniper')">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-rose-500/20 rounded-lg flex items-center justify-center text-rose-400 font-black text-xl">SR</div>
-                        <div>
-                            <h3 class="text-white font-bold text-base">Atirador de Elite (Sniper)</h3>
-                            <p class="text-xs text-slate-400">Sniper de ferrolho. Dano extremo na cabeça.</p>
-                        </div>
-                    </div>
-                    <div class="text-right text-xs font-mono text-rose-400 font-bold">Munição: 5/15</div>
-                </div>
+// Score/FX
+let hitMarkerTimer = 0;
+let damageFlashAmt = 0;
+let notifyTimer = 0;
 
-                <!-- Classe 3: Caçador (Pistola Ágil / Velocidade) -->
-                <div id="class-hunter" class="class-card bg-slate-950/40 hover:bg-slate-800/40 p-4 rounded-xl border-2 border-transparent hover:border-indigo-500/30 cursor-pointer transition-all flex justify-between items-center" onclick="selectClass('hunter')">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-cyan-500/20 rounded-lg flex items-center justify-center text-cyan-400 font-black text-xl">PT</div>
-                        <div>
-                            <h3 class="text-white font-bold text-base">Mercenário Ágil</h3>
-                            <p class="text-xs text-slate-400">Pistola leve de alta precisão. Movimentação veloz.</p>
-                        </div>
-                    </div>
-                    <div class="text-right text-xs font-mono text-cyan-400 font-bold">Munição: 15/45</div>
-                </div>
-            </div>
+// ── UTILS ────────────────────────────────────────────────────────
+const TAU = Math.PI * 2;
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const lerp  = (a,b,t) => a + (b-a)*t;
+const dist2d = (ax,az,bx,bz) => Math.hypot(ax-bx, az-bz);
+const dist3d = (a,b) => Math.hypot(a.x-b.x, a.y-b.y, a.z-b.z);
+const randRange = (a,b) => a + Math.random()*(b-a);
 
-            <!-- Direita: Como jogar e Botão Start -->
-            <div class="w-full lg:w-1/2 bg-slate-900/40 border border-white/5 p-6 rounded-2xl flex flex-col justify-between h-full min-h-[300px]">
-                <div>
-                    <h2 class="text-white font-bold text-xl mb-4 tracking-wide">COMO JOGAR</h2>
-                    <ul class="text-slate-400 text-sm space-y-2 font-medium">
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">WASD</span> Movimentação</li>
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">MOUSE</span> Mover câmera</li>
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">CLIQUE ESQ.</span> Disparar</li>
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">SHIFT L.</span> Correr velozmente</li>
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">ESPAÇO</span> Pular</li>
-                        <li class="flex items-center gap-2"><span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono font-bold text-xs">R</span> Recarregar munição</li>
-                    </ul>
-                </div>
+// ── AUDIO (Web Audio API) ─────────────────────────────────────────
+let audioCtx = null;
+function initAudio() {
+  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+}
+function playTone(freq, dur, type='square', vol=0.15, decay=true) {
+  if(!audioCtx) return;
+  try {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.type = type; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    if(decay) g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch(e){}
+}
+function playShot(weapon) {
+  if(weapon==='rifle')  { playTone(180,0.12,'sawtooth',0.3); playTone(90,0.08,'square',0.2); }
+  if(weapon==='sniper') { playTone(120,0.25,'sawtooth',0.35); playTone(60,0.2,'square',0.15); }
+  if(weapon==='pistol') { playTone(200,0.1,'sawtooth',0.25); playTone(100,0.07,'square',0.18); }
+}
+function playReload() { playTone(400,0.08,'square',0.1); setTimeout(()=>playTone(300,0.1,'square',0.12),150); }
+function playHurt()   { playTone(150,0.2,'sawtooth',0.3); }
+function playStep()   { playTone(randRange(60,90),0.05,'sine',0.05); }
 
-                <div class="mt-6">
-                    <button id="btn-play" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-black py-4 rounded-xl shadow-lg shadow-indigo-600/30 transition-all text-center tracking-widest text-lg uppercase">
-                        ENTRAR NO COMBATE
-                    </button>
-                    <p class="text-center text-slate-500 text-[10px] mt-2">Clique para travar o cursor do mouse e iniciar o jogo.</p>
-                </div>
-            </div>
-        </div>
+// ── MAP ──────────────────────────────────────────────────────────
+// Each box: {x,y,z,w,h,d, color}
+const mapBoxes = [];
+function buildMap() {
+  mapBoxes.length = 0;
+  const S = CFG.MAP_SIZE;
+  // Floor
+  mapBoxes.push({x:0,y:-0.5,z:0,  w:S,h:1,d:S,   col:[0.15,0.17,0.2]});
+  // Walls
+  mapBoxes.push({x:0,     y:1,z:-S/2, w:S,h:4,d:0.4, col:[0.1,0.12,0.15]});
+  mapBoxes.push({x:0,     y:1,z: S/2, w:S,h:4,d:0.4, col:[0.1,0.12,0.15]});
+  mapBoxes.push({x:-S/2,  y:1,z:0,    w:0.4,h:4,d:S,  col:[0.1,0.12,0.15]});
+  mapBoxes.push({x: S/2,  y:1,z:0,    w:0.4,h:4,d:S,  col:[0.1,0.12,0.15]});
+  // Crates
+  const crates = [
+    {x:4,z:4},{x:-4,z:4},{x:4,z:-4},{x:-4,z:-4},
+    {x:7,z:0},{x:-7,z:0},{x:0,z:7},{x:0,z:-7},
+  ];
+  crates.forEach(c => mapBoxes.push({x:c.x,y:0.6,z:c.z,w:1.2,h:1.2,d:1.2,col:[0.4,0.28,0.12]}));
+  // Platforms
+  mapBoxes.push({x:6,y:1.5,z:6,    w:4,h:0.4,d:4,   col:[0.2,0.35,0.5]});
+  mapBoxes.push({x:-6,y:1.5,z:-6,  w:4,h:0.4,d:4,   col:[0.2,0.35,0.5]});
+  mapBoxes.push({x:6,y:1.5,z:-6,   w:4,h:0.4,d:4,   col:[0.2,0.5,0.35]});
+  mapBoxes.push({x:-6,y:1.5,z:6,   w:4,h:0.4,d:4,   col:[0.5,0.2,0.35]});
+  // Ramps (flat boxes for aesthetics)
+  mapBoxes.push({x:4,y:0.8,z:6,    w:1.5,h:0.3,d:2, col:[0.3,0.3,0.3]});
+  mapBoxes.push({x:-4,y:0.8,z:-6,  w:1.5,h:0.3,d:2, col:[0.3,0.3,0.3]});
+  // Center structure
+  mapBoxes.push({x:0,y:0.75,z:0,   w:3,h:1.5,d:3,   col:[0.25,0.15,0.35]});
+  mapBoxes.push({x:0,y:2.25,z:0,   w:2,h:0.5,d:2,   col:[0.35,0.2,0.5]});
+  // Pillars
+  [-8,8].forEach(x=>[-8,8].forEach(z=>{
+    mapBoxes.push({x,y:1,z,w:0.8,h:4,d:0.8,col:[0.18,0.22,0.28]});
+  }));
+}
 
-        <!-- Rodapé do Menu -->
-        <div class="flex flex-col md:flex-row justify-between items-center text-slate-500 text-xs gap-2 border-t border-white/5 pt-4">
-            <div>Inspirado no estilo competitivo Low-Poly / Krunker</div>
-            <div class="flex gap-4">
-                <a href="#" class="hover:text-slate-300 transition">GitHub</a>
-                <a href="#" class="hover:text-slate-300 transition">Configurações</a>
-                <a href="#" class="hover:text-slate-300 transition">Créditos</a>
-            </div>
-        </div>
-    </div>
+// ── COLLISION ────────────────────────────────────────────────────
+function boxAABB(box) {
+  return {
+    minX:box.x-box.w/2, maxX:box.x+box.w/2,
+    minY:box.y-box.h/2, maxY:box.y+box.h/2,
+    minZ:box.z-box.d/2, maxZ:box.z+box.d/2,
+  };
+}
 
-    <!-- TELA DE GAME OVER -->
-    <div id="game-over-screen" class="absolute top-0 left-0 w-full h-full bg-black/95 z-35 flex-col items-center justify-center p-8 hidden">
-        <div class="bg-gradient-to-b from-red-950 to-slate-950 border-2 border-red-500/30 p-8 rounded-3xl max-w-md w-full text-center flex flex-col items-center gap-6 shadow-2xl shadow-red-500/10">
-            <div class="w-16 h-16 bg-red-500/10 border border-red-500/30 rounded-full flex items-center justify-center text-red-500 text-3xl font-black">💀</div>
-            <div>
-                <h1 class="text-red-500 font-black text-3xl tracking-widest uppercase">VOCÊ FOI ELIMINADO</h1>
-                <p class="text-slate-400 text-sm mt-1">Sua pontuação final no combate</p>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4 w-full bg-black/40 p-4 rounded-2xl border border-white/5">
-                <div class="text-center">
-                    <div class="text-xs text-slate-400">ELIMINAÇÕES</div>
-                    <div class="text-3xl font-black text-amber-400" id="go-kills">0</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-xs text-slate-400">PONTUAÇÃO</div>
-                    <div class="text-3xl font-black text-cyan-400" id="go-score">0</div>
-                </div>
-            </div>
+function playerAABB() {
+  const r=0.3, h=1.0;
+  return {
+    minX:player.x-r, maxX:player.x+r,
+    minY:player.y-0.1, maxY:player.y+h,
+    minZ:player.z-r, maxZ:player.z+r,
+  };
+}
 
-            <button id="btn-restart" class="w-full bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white font-extrabold py-3.5 rounded-xl transition-all uppercase tracking-widest">
-                RESPAWNAR NOVO ROUND
-            </button>
-        </div>
-    </div>
+function aabbOverlap(a,b) {
+  return a.maxX>b.minX && a.minX<b.maxX &&
+         a.maxY>b.minY && a.minY<b.maxY &&
+         a.maxZ>b.minZ && a.minZ<b.maxZ;
+}
 
-    <!-- SCRIPT DE ÁUDIO & JOGO COMPLETO -->
-    <script>
-        // --- 1. WEB AUDIO API - Efeitos Sonoros Gerados Dinamicamente ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+// Resolve collision with push-out
+function resolvePlayer() {
+  const pa = playerAABB();
+  for(const box of mapBoxes) {
+    if(box.y < -0.1) continue; // skip floor during push (handled by gravity)
+    const ba = boxAABB(box);
+    if(!aabbOverlap(pa, ba)) continue;
+    // find smallest overlap axis
+    const dx1 = ba.maxX - pa.minX, dx2 = pa.maxX - ba.minX;
+    const dy1 = ba.maxY - pa.minY, dy2 = pa.maxY - ba.minY;
+    const dz1 = ba.maxZ - pa.minZ, dz2 = pa.maxZ - ba.minZ;
+    const ox = Math.min(dx1,dx2), oy = Math.min(dy1,dy2), oz = Math.min(dz1,dz2);
+    if(oy <= ox && oy <= oz) {
+      if(dy2 < dy1) { player.y -= oy; if(player.vy<0){player.vy=0;player.onGround=true;} }
+      else           { player.y += oy; if(player.vy>0) player.vy=0; }
+    } else if(ox <= oz) {
+      if(dx2 < dx1) { player.x -= ox; player.vx=0; }
+      else           { player.x += ox; player.vx=0; }
+    } else {
+      if(dz2 < dz1) { player.z -= oz; player.vz=0; }
+      else           { player.z += oz; player.vz=0; }
+    }
+  }
+  // Floor clamp
+  if(player.y < CFG.PLAYER_HEIGHT) {
+    player.y = CFG.PLAYER_HEIGHT;
+    player.vy = 0;
+    player.onGround = true;
+  }
+}
 
-        function playSound(type) {
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+// Ray-box intersection (returns t or Infinity)
+function rayBox(ox,oy,oz, dx,dy,dz, box) {
+  const ba = boxAABB(box);
+  const tx1=(ba.minX-ox)/dx, tx2=(ba.maxX-ox)/dx;
+  const ty1=(ba.minY-oy)/dy, ty2=(ba.maxY-oy)/dy;
+  const tz1=(ba.minZ-oz)/dz, tz2=(ba.maxZ-oz)/dz;
+  const tmin = Math.max(Math.min(tx1,tx2), Math.min(ty1,ty2), Math.min(tz1,tz2));
+  const tmax = Math.min(Math.max(tx1,tx2), Math.max(ty1,ty2), Math.max(tz1,tz2));
+  if(tmax<0 || tmin>tmax) return Infinity;
+  return tmin > 0 ? tmin : tmax;
+}
 
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
+// Cast a ray, return {t, box, normal}
+function castRay(ox,oy,oz, dx,dy,dz, maxDist=50) {
+  let best = {t:maxDist, box:null};
+  for(const box of mapBoxes) {
+    const t = rayBox(ox,oy,oz, dx,dy,dz, box);
+    if(t < best.t) best = {t, box};
+  }
+  return best;
+}
 
-            if (type === 'shoot_assault') {
-                // Som de fuzil de assalto
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(320, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.12);
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.13);
-            } else if (type === 'shoot_sniper') {
-                // Som de Sniper (mais grave e forte)
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.45);
-                gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.45);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.46);
-            } else if (type === 'shoot_pistol') {
-                // Som de pistola
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(450, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.08);
-                gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.09);
-            } else if (type === 'reload') {
-                // Som de recarga de arma (dois cliques mecânicos)
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.12);
-                
-                setTimeout(() => {
-                    const osc2 = audioCtx.createOscillator();
-                    const gain2 = audioCtx.createGain();
-                    osc2.connect(gain2);
-                    gain2.connect(audioCtx.destination);
-                    osc2.type = 'sine';
-                    osc2.frequency.setValueAtTime(1000, audioCtx.currentTime);
-                    gain2.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                    gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                    osc2.start();
-                    osc2.stop(audioCtx.currentTime + 0.12);
-                }, 200);
-            } else if (type === 'footstep') {
-                // Som curto de passos na arena
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(80, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.05);
-                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.06);
-            } else if (type === 'hit') {
-                // Som de acerto/dano no inimigo (hitmarker)
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.06);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.07);
-            } else if (type === 'hurt') {
-                // Som de jogador recebendo dano
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(110, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.2);
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.21);
-            }
-        }
+// ── ENEMIES ──────────────────────────────────────────────────────
+const ENEMY_COLORS = [
+  [0.9,0.2,0.2],[0.2,0.8,0.2],[0.2,0.4,0.9],
+  [0.9,0.6,0.1],[0.8,0.2,0.8],[0.1,0.8,0.8]
+];
 
-        // --- 2. CONFIGURAÇÕES DAS CLASSES ---
-        const CLASSES = {
-            assault: {
-                name: "RIFLE DE ASSALTO",
-                symbol: "AR",
-                maxAmmo: 30,
-                reserveAmmo: 90,
-                damage: 22,
-                headshotMult: 1.8,
-                fireRate: 150, // ms entre tiros
-                speed: 0.13,
-                reloadTime: 1200,
-                sound: 'shoot_assault',
-                color: 0x4f46e5 // Indigo
-            },
-            sniper: {
-                name: "FUZIL PRECISÃO",
-                symbol: "SR",
-                maxAmmo: 5,
-                reserveAmmo: 15,
-                damage: 85,
-                headshotMult: 3.0,
-                fireRate: 900,
-                speed: 0.11,
-                reloadTime: 2000,
-                sound: 'shoot_sniper',
-                color: 0xf43f5e // Rose
-            },
-            hunter: {
-                name: "PISTOLA ÁGIL",
-                symbol: "PT",
-                maxAmmo: 15,
-                reserveAmmo: 45,
-                damage: 35,
-                headshotMult: 2.0,
-                fireRate: 250,
-                speed: 0.16,
-                reloadTime: 900,
-                sound: 'shoot_pistol',
-                color: 0x06b6d4 // Cyan
-            }
-        };
+function spawnEnemy() {
+  const angle = Math.random() * TAU;
+  const dist  = 8 + Math.random() * 8;
+  const colIdx = enemyIdCounter % ENEMY_COLORS.length;
+  enemies.push({
+    id: enemyIdCounter++,
+    x: Math.cos(angle)*dist,
+    y: 0.9,
+    z: Math.sin(angle)*dist,
+    yaw: 0,
+    hp: 60,
+    maxHp: 60,
+    lastShot: 0,
+    alive: true,
+    respawnTimer: 0,
+    col: ENEMY_COLORS[colIdx],
+    stepTimer: 0,
+  });
+}
 
-        let currentClass = CLASSES.assault;
+function updateEnemies(now) {
+  for(const e of enemies) {
+    if(!e.alive) {
+      e.respawnTimer -= deltaTime;
+      if(e.respawnTimer <= 0) {
+        e.hp = e.maxHp;
+        e.alive = true;
+        const angle = Math.random()*TAU;
+        const d = 8 + Math.random()*8;
+        e.x = Math.cos(angle)*d;
+        e.y = 0.9;
+        e.z = Math.sin(angle)*d;
+      }
+      continue;
+    }
+    const dx = player.x - e.x;
+    const dz = player.z - e.z;
+    const dist = Math.hypot(dx,dz);
+    e.yaw = Math.atan2(dx, dz);
 
-        function selectClass(className) {
-            currentClass = CLASSES[className];
-            document.querySelectorAll('.class-card').forEach(card => {
-                card.classList.remove('border-indigo-500', 'bg-slate-800/80');
-                card.classList.add('border-transparent', 'bg-slate-950/40');
-            });
-            const activeCard = document.getElementById(`class-${className}`);
-            activeCard.classList.remove('border-transparent', 'bg-slate-950/40');
-            activeCard.classList.add('border-indigo-500', 'bg-slate-800/80');
-        }
+    // Move toward player
+    if(dist > 1.5) {
+      const spd = CFG.ENEMY_SPEED * deltaTime * 60;
+      e.x += (dx/dist)*spd;
+      e.z += (dz/dist)*spd;
+      e.y = 0.9; // keep on ground (simple)
+    }
 
-        // --- 3. VARIÁVEIS DO MOTOR DO JOGO (Three.js) ---
-        let scene, camera, renderer;
-        let clock = new THREE.Clock();
-        let walls = [];
-        let platforms = [];
-        let enemies = [];
-        let particles = [];
-        let gameActive = false;
-
-        // Atributos do Jogador
-        let player = {
-            hp: 100,
-            maxHp: 100,
-            score: 0,
-            kills: 0,
-            ammo: 30,
-            reserve: 90,
-            position: new THREE.Vector3(0, 2, 0),
-            velocity: new THREE.Vector3(),
-            speedMultiplier: 1,
-            isSprinting: false,
-            canShoot: true,
-            isReloading: false,
-            height: 2.2,
-            isJumping: false,
-            onGround: true
-        };
-
-        // Inputs e Pointer Lock
-        let keys = {};
-        let moveForward = false;
-        let moveBackward = false;
-        let moveLeft = false;
-        let moveRight = false;
-        let isSprinting = false;
-
-        // Câmera Pitch e Yaw (Pointer Lock)
-        let pitchObject = new THREE.Object3D();
-        let yawObject = new THREE.Object3D();
-        yawObject.add(pitchObject);
-
-        // Arma do Jogador (Mesh 3D visual)
-        let weaponMesh;
-        let lastTimeShot = 0;
-
-        // Minimap
-        const minimapCanvas = document.getElementById('minimap');
-        const minimapCtx = minimapCanvas.getContext('2d');
-        minimapCanvas.width = 128;
-        minimapCanvas.height = 128;
-
-        // FPS counter
-        let lastFpsUpdate = 0;
-        let framesCount = 0;
-
-        // --- 4. CONFIGURAÇÃO DA CENA ---
-        function initEngine() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0e1726);
-            scene.fog = new THREE.FogExp2(0x0e1726, 0.015);
-
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            pitchObject.add(camera);
-            scene.add(yawObject);
-            yawObject.position.set(0, player.height, 0);
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-            // Luzes
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-            scene.add(ambientLight);
-
-            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4);
-            hemiLight.position.set(0, 200, 0);
-            scene.add(hemiLight);
-
-            const sunLight = new THREE.DirectionalLight(0xa5b4fc, 0.8);
-            sunLight.position.set(10, 40, 20);
-            sunLight.castShadow = true;
-            sunLight.shadow.mapSize.width = 2048;
-            sunLight.shadow.mapSize.height = 2048;
-            sunLight.shadow.camera.near = 0.5;
-            sunLight.shadow.camera.far = 150;
-            const d = 50;
-            sunLight.shadow.camera.left = -d;
-            sunLight.shadow.camera.right = d;
-            sunLight.shadow.camera.top = d;
-            sunLight.shadow.camera.bottom = -d;
-            scene.add(sunLight);
-
-            // Criar o Mapa
-            buildArena();
-
-            // Event Listeners de Resizing
-            window.addEventListener('resize', onWindowResize);
-
-            // Ajustar UI de toque caso necessário
-            if ('ontouchstart' in window) {
-                document.getElementById('touch-controls').classList.remove('hidden');
-            }
-        }
-
-        // --- 5. MONTAGEM DA ARENA (Estilo Low Poly / Boxy) ---
-        function buildArena() {
-            // Chão (Grid colorido minimalista)
-            const floorGeo = new THREE.PlaneGeometry(160, 160);
-            const floorMat = new THREE.MeshStandardMaterial({ 
-                color: 0x1e293b, 
-                roughness: 0.8,
-                metalness: 0.2
-            });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = true;
-            scene.add(floor);
-
-            // Adiciona grade visual no chão
-            const grid = new THREE.GridHelper(160, 40, 0x4f46e5, 0x334155);
-            grid.position.y = 0.01;
-            scene.add(grid);
-
-            // Paredes limites (Arena fechada 80x80)
-            const wallMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
-            const borderWallGeo = new THREE.BoxGeometry(160, 12, 2);
-
-            // Norte
-            createStaticObstacle(borderWallGeo, wallMat, 0, 6, -80);
-            // Sul
-            createStaticObstacle(borderWallGeo, wallMat, 0, 6, 80);
-            
-            const borderWallGeoY = new THREE.BoxGeometry(2, 12, 160);
-            // Leste
-            createStaticObstacle(borderWallGeoY, wallMat, 80, 6, 0);
-            // Oeste
-            createStaticObstacle(borderWallGeoY, wallMat, -80, 6, 0);
-
-            // Estruturas Internas (Pilares, Plataformas e Caixas)
-            const pilarGeo = new THREE.BoxGeometry(4, 15, 4);
-            const pilarMat = new THREE.MeshStandardMaterial({ color: 0x4338ca, roughness: 0.5 }); // Indigo Pillars
-            const positions = [
-                [-20, -20], [-20, 20], [20, -20], [20, 20],
-                [-40, 0], [40, 0], [0, -40], [0, 40]
-            ];
-            positions.forEach(pos => {
-                createStaticObstacle(pilarGeo, pilarMat, pos[0], 7.5, pos[1]);
-            });
-
-            // Caixas Espalhadas (Estilo Krunker)
-            const boxGeo = new THREE.BoxGeometry(4, 4, 4);
-            const boxMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.6 }); // Orange Crates
-            const boxPositions = [
-                [-15, -15, 2], [15, -15, 2], [15, 15, 2], [-15, 15, 2],
-                [-5, -5, 2], [5, 5, 2], [25, 0, 2], [-25, 12, 2], [12, -28, 2],
-                [-30, -30, 2], [30, 30, 2], [0, 25, 2]
-            ];
-            boxPositions.forEach(p => {
-                createStaticObstacle(boxGeo, boxMat, p[0], p[2], p[1]);
-            });
-
-            // Rampas e Áreas Elevadas
-            const platGeo = new THREE.BoxGeometry(16, 1, 16);
-            const platMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.7 }); // Emerald Platforms
-            createStaticObstacle(platGeo, platMat, 0, 4, 0); // Plataforma Central
-
-            // Subidas para a central
-            const rampGeo = new THREE.BoxGeometry(6, 0.5, 12);
-            const ramp = new THREE.Mesh(rampGeo, platMat);
-            ramp.position.set(0, 2, -10);
-            ramp.rotation.x = 0.3; // Rampa inclinada
-            scene.add(ramp);
-            platforms.push(ramp);
-        }
-
-        function createStaticObstacle(geometry, material, x, y, z) {
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(x, y, z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            scene.add(mesh);
-            walls.push(mesh);
-            return mesh;
-        }
-
-        // --- 6. ARMA NA TELA DO JOGADOR (Visual FPS) ---
-        function createWeapon() {
-            if (weaponMesh) {
-                pitchObject.remove(weaponMesh);
-            }
-
-            // Grupo da arma acoplado ao Pitch (segue a visão)
-            weaponMesh = new THREE.Group();
-
-            const weaponBodyGeo = new THREE.BoxGeometry(0.12, 0.15, 0.7);
-            const weaponMat = new THREE.MeshStandardMaterial({ color: currentClass.color, metalness: 0.8, roughness: 0.2 });
-            const body = new THREE.Mesh(weaponBodyGeo, weaponMat);
-            body.position.set(0, 0, -0.3);
-            weaponMesh.add(body);
-
-            // Cano da arma
-            const barrelGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.4);
-            const barrelMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.9 });
-            const barrel = new THREE.Mesh(barrelGeo, barrelMat);
-            barrel.rotation.x = Math.PI / 2;
-            barrel.position.set(0, 0.03, -0.7);
-            weaponMesh.add(barrel);
-
-            // Mira telescópica / Scope
-            const scopeGeo = new THREE.BoxGeometry(0.04, 0.04, 0.25);
-            const scope = new THREE.Mesh(scopeGeo, barrelMat);
-            scope.position.set(0, 0.11, -0.4);
-            weaponMesh.add(scope);
-
-            // Posiciona a arma no canto direito da tela (Estilo clássico FPS)
-            weaponMesh.position.set(0.3, -0.25, -0.5);
-            pitchObject.add(weaponMesh);
-        }
-
-        // --- 7. SISTEMA DE ENTRADA DO MOUSE (Pointer Lock) ---
-        const btnPlay = document.getElementById('btn-play');
-        const btnRestart = document.getElementById('btn-restart');
-        const mainMenu = document.getElementById('main-menu');
-        const gameOverScreen = document.getElementById('game-over-screen');
-        const hud = document.getElementById('hud');
-
-        btnPlay.addEventListener('click', startGame);
-        btnRestart.addEventListener('click', restartGame);
-
-        function startGame() {
-            document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
-            document.body.requestPointerLock();
-            
-            // Iniciar Áudio Context para os sons funcionarem
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-        }
-
-        function restartGame() {
-            player.hp = 100;
-            player.score = 0;
-            player.kills = 0;
-            player.ammo = currentClass.maxAmmo;
-            player.reserve = currentClass.reserveAmmo;
-            
-            // Limpa inimigos existentes
-            enemies.forEach(e => scene.remove(e.mesh));
-            enemies = [];
-
-            updateHud();
-            gameOverScreen.classList.add('hidden');
-            gameOverScreen.classList.remove('flex');
-            startGame();
-        }
-
-        document.addEventListener('pointerlockchange', () => {
-            if (document.pointerLockElement === document.body) {
-                // Jogo ativado
-                mainMenu.classList.add('hidden');
-                hud.classList.remove('hidden');
-                gameActive = true;
-                
-                // Configura arma com base na classe escolhida
-                player.ammo = currentClass.maxAmmo;
-                player.reserve = currentClass.reserveAmmo;
-                createWeapon();
-                updateHud();
-
-                // Gera horda inicial de inimigos
-                spawnEnemyWave(5);
-            } else {
-                // Jogo pausado / Fora de foco
-                if (player.hp > 0) {
-                    mainMenu.classList.remove('hidden');
-                    hud.classList.add('hidden');
-                    gameActive = false;
-                }
-            }
+    // Shoot
+    if(dist < CFG.ENEMY_SHOOT_RANGE && now - e.lastShot > CFG.ENEMY_SHOOT_RATE) {
+      e.lastShot = now;
+      const hasLOS = !isBlocked(e.x,e.y,e.z, player.x,player.y,player.z);
+      if(hasLOS) {
+        damagePlayer(CFG.ENEMY_DAMAGE);
+        // bullet trail enemy→player
+        bulletTrails.push({
+          x1:e.x, y1:e.y, z1:e.z,
+          x2:player.x, y2:player.y, z2:player.z,
+          life:0.15, maxLife:0.15
         });
-
-        // Controles de Visão (Mouse Move)
-        document.addEventListener('mousemove', (e) => {
-            if (!gameActive) return;
-
-            const sensitivity = 0.0022;
-            yawObject.rotation.y -= e.movementX * sensitivity;
-            pitchObject.rotation.x -= e.movementY * sensitivity;
-
-            // Limitar ângulo vertical (não dar cambalhota de pescoço)
-            pitchObject.rotation.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, pitchObject.rotation.x));
-        });
-
-        // Eventos de Teclado (WASD + Outros)
-        document.addEventListener('keydown', (e) => {
-            keys[e.code] = true;
-            
-            if (e.code === 'KeyR' && !player.isReloading && player.ammo < currentClass.maxAmmo && player.reserve > 0) {
-                reloadWeapon();
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            keys[e.code] = false;
-        });
-
-        // Eventos de Toque / Touch adaptado para Mobile
-        document.getElementById('btn-shoot').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (gameActive) performShoot();
-        });
-        document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (gameActive && player.onGround) player.velocity.y = 8;
-        });
-        document.getElementById('btn-reload').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (gameActive && !player.isReloading) reloadWeapon();
-        });
-
-        // --- 8. SISTEMA DE TIRO & IMPACTOS (Partículas + Hitscan) ---
-        window.addEventListener('mousedown', (e) => {
-            if (!gameActive) return;
-            if (e.button === 0) { // Clique esquerdo
-                performShoot();
-            }
-        });
-
-        function performShoot() {
-            const now = performance.now();
-            if (now - lastTimeShot < currentClass.fireRate) return;
-            if (player.isReloading) return;
-            if (player.ammo <= 0) {
-                playSound('reload');
-                document.getElementById('reload-warning').classList.remove('hidden');
-                return;
-            }
-
-            lastTimeShot = now;
-            player.ammo--;
-            updateHud();
-
-            // Som de disparo específico
-            playSound(currentClass.sound);
-
-            // Animação de recuo rápido da arma (Muzzle kickback)
-            weaponMesh.position.z += 0.15;
-            weaponMesh.rotation.x -= 0.08;
-
-            // Flash de disparo (muzzle flash visual temporário)
-            createMuzzleFlash();
-
-            // Processar Hitscan via Raycaster da Câmera
-            const raycaster = new THREE.Raycaster();
-            const centerScreen = new THREE.Vector2(0, 0); // Centro da tela
-            raycaster.setFromCamera(centerScreen, camera);
-
-            // Alvos: Inimigos
-            const targets = enemies.map(e => e.mesh);
-            const intersects = raycaster.intersectObjects(targets, true);
-
-            if (intersects.length > 0) {
-                const hit = intersects[0];
-                const hitTargetMesh = hit.object;
-                
-                // Encontrar o objeto inimigo correspondente à mesh atingida
-                const enemy = enemies.find(e => e.mesh === hitTargetMesh || e.mesh.getObjectById(hitTargetMesh.id) || hitTargetMesh.parent === e.mesh);
-
-                if (enemy) {
-                    // Verificar se foi tiro na cabeça (headshot)
-                    const isHeadshot = hit.point.y - enemy.mesh.position.y > 1.2;
-                    let calculatedDamage = currentClass.damage;
-
-                    if (isHeadshot) {
-                        calculatedDamage = Math.round(calculatedDamage * currentClass.headshotMult);
-                        showKillFeedMessage("HEADSHOT!", "text-amber-400 font-extrabold scale-110");
-                    }
-
-                    enemy.hp -= calculatedDamage;
-                    playSound('hit');
-
-                    // Partículas de sangue do inimigo (vermelho neon)
-                    createImpactParticles(hit.point, 0xef4444);
-
-                    // Se inimigo morreu
-                    if (enemy.hp <= 0) {
-                        eliminateEnemy(enemy);
-                    }
-                } else {
-                    // Hit em parede/chão
-                    createImpactParticles(hit.point, 0xe2e8f0);
-                }
-            } else {
-                // Raycast contra paredes do cenário
-                const wallIntersects = raycaster.intersectObjects(walls);
-                if (wallIntersects.length > 0) {
-                    createImpactParticles(wallIntersects[0].point, 0xffd700); // Faíscas amarelas em paredes
-                }
-            }
-        }
-
-        // Flash do cano da arma
-        function createMuzzleFlash() {
-            const flashGeo = new THREE.PointLight(0xfff7ed, 3, 5);
-            flashGeo.position.set(0.3, -0.2, -1.2);
-            pitchObject.add(flashGeo);
-            setTimeout(() => {
-                pitchObject.remove(flashGeo);
-            }, 60);
-        }
-
-        // Criador de Partículas de Impacto
-        function createImpactParticles(point, color) {
-            const group = new THREE.Group();
-            const partGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
-            const partMat = new THREE.MeshBasicMaterial({ color: color });
-
-            for (let i = 0; i < 8; i++) {
-                const p = new THREE.Mesh(partGeo, partMat);
-                p.position.copy(point);
-                p.userData = {
-                    vx: (Math.random() - 0.5) * 5,
-                    vy: (Math.random() - 0.5) * 5 + 3,
-                    vz: (Math.random() - 0.5) * 5,
-                    life: 1.0
-                };
-                group.add(p);
-            }
-            scene.add(group);
-            particles.push(group);
-
-            setTimeout(() => {
-                scene.remove(group);
-                const idx = particles.indexOf(group);
-                if (idx > -1) particles.splice(idx, 1);
-            }, 600);
-        }
-
-        // Recarga de Munição
-        function reloadWeapon() {
-            player.isReloading = true;
-            playSound('reload');
-            document.getElementById('reload-warning').classList.add('hidden');
-            
-            // Simulação visual de recarga (inclinar arma)
-            const tl = setInterval(() => {
-                weaponMesh.rotation.z += 0.25;
-            }, 50);
-
-            setTimeout(() => {
-                clearInterval(tl);
-                weaponMesh.rotation.z = 0;
-
-                const needed = currentClass.maxAmmo - player.ammo;
-                const toLoad = Math.min(needed, player.reserve);
-                player.ammo += toLoad;
-                player.reserve -= toLoad;
-                player.isReloading = false;
-                updateHud();
-            }, currentClass.reloadTime);
-        }
-
-        // --- 9. INIMIGOS E INTELIGÊNCIA ARTIFICIAL (IA) ---
-        function spawnEnemyWave(count) {
-            for (let i = 0; i < count; i++) {
-                spawnEnemy();
-            }
-        }
-
-        function spawnEnemy() {
-            // Spawn fora do alcance visual imediato do player
-            let x, z;
-            do {
-                x = (Math.random() - 0.5) * 120;
-                z = (Math.random() - 0.5) * 120;
-            } while (player.position.distanceTo(new THREE.Vector3(x, 2, z)) < 25);
-
-            const enemyGroup = new THREE.Group();
-
-            // Corpo cilíndrico (Estilo boneco low poly)
-            const bodyGeo = new THREE.CylinderGeometry(0.8, 0.8, 2.5, 6);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 }); // Inimigos vermelhos
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.position.y = 1.25;
-            body.castShadow = true;
-            body.receiveShadow = true;
-            enemyGroup.add(body);
-
-            // Cabeça (ponto de tiro crítico de cor amarela)
-            const headGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
-            const headMat = new THREE.MeshStandardMaterial({ color: 0xfacc15 });
-            const head = new THREE.Mesh(headGeo, headMat);
-            head.position.y = 2.8;
-            head.castShadow = true;
-            enemyGroup.add(head);
-
-            enemyGroup.position.set(x, 0, z);
-            scene.add(enemyGroup);
-
-            enemies.push({
-                mesh: enemyGroup,
-                hp: 100,
-                maxHp: 100,
-                speed: 1.5 + Math.random() * 2, // velocidade variada para desafio
-                lastAttack: 0,
-                attackCooldown: 1200 // ms
-            });
-        }
-
-        function updateEnemies(delta) {
-            const playerPos = yawObject.position.clone();
-            playerPos.y = 0; // focar no plano horizontal
-
-            enemies.forEach(enemy => {
-                const enemyPos = enemy.mesh.position.clone();
-                enemyPos.y = 0;
-
-                // Direção em direção ao jogador
-                const dir = new THREE.Vector3().subVectors(playerPos, enemyPos).normalize();
-                
-                // Mover em direção ao jogador
-                enemy.mesh.position.addScaledVector(dir, enemy.speed * delta);
-                
-                // Rotacionar em direção ao jogador
-                enemy.mesh.lookAt(playerPos.x, enemy.mesh.position.y, playerPos.z);
-
-                // Verificar colisão e ataque corpo-a-corpo
-                const distance = enemy.mesh.position.distanceTo(yawObject.position);
-                if (distance < 3.0) {
-                    // Atacar o jogador
-                    const now = performance.now();
-                    if (now - enemy.lastAttack > enemy.attackCooldown) {
-                        enemy.lastAttack = now;
-                        damagePlayer(25); // Inimigo tira 25 de vida
-                    }
-                }
-            });
-        }
-
-        function eliminateEnemy(enemy) {
-            scene.remove(enemy.mesh);
-            const idx = enemies.indexOf(enemy);
-            if (idx > -1) enemies.splice(idx, 1);
-
-            player.kills++;
-            player.score += 150;
-            updateHud();
-
-            showKillFeedMessage("INIMIGO ELIMINADO [+150]", "text-emerald-400 font-bold");
-
-            // Respawn contínuo para manter a ação frenética
-            setTimeout(() => {
-                if (gameActive) spawnEnemy();
-            }, 3000);
-        }
-
-        // --- 10. ATUALIZAÇÕES DA HUD ---
-        function updateHud() {
-            document.getElementById('hp-val').innerText = Math.max(0, Math.round(player.hp));
-            document.getElementById('hp-bar').style.width = `${Math.max(0, player.hp)}%`;
-            document.getElementById('kills-val').innerText = player.kills;
-            document.getElementById('score-val').innerText = player.score;
-            document.getElementById('ammo-clip').innerText = player.ammo;
-            document.getElementById('ammo-reserve').innerText = player.reserve;
-            document.getElementById('weapon-name').innerText = currentClass.name;
-            document.getElementById('weapon-symbol').innerText = currentClass.symbol;
-        }
-
-        function showKillFeedMessage(text, classes = "text-white") {
-            const feed = document.getElementById('kill-feed');
-            const el = document.createElement('div');
-            el.className = `bg-black/60 px-3 py-1 rounded border border-white/5 animate-pulse ${classes}`;
-            el.innerText = text;
-            feed.appendChild(el);
-            setTimeout(() => el.remove(), 2500);
-        }
-
-        function damagePlayer(amount) {
-            if (player.hp <= 0) return;
-            
-            player.hp -= amount;
-            playSound('hurt');
-            updateHud();
-
-            // Flash de dano vermelho na tela
-            const flash = document.getElementById('damage-flash');
-            flash.classList.add('damaged');
-            setTimeout(() => flash.classList.remove('damaged'), 300);
-
-            if (player.hp <= 0) {
-                triggerGameOver();
-            }
-        }
-
-        function triggerGameOver() {
-            gameActive = false;
-            document.exitPointerLock();
-            
-            document.getElementById('go-kills').innerText = player.kills;
-            document.getElementById('go-score').innerText = player.score;
-
-            gameOverScreen.classList.remove('hidden');
-            gameOverScreen.classList.add('flex');
-            hud.classList.add('hidden');
-        }
-
-        // --- 11. LOOP DE FÍSICA E COLISÃO ---
-        function checkCollisions() {
-            const playerRadius = 1.2;
-            const pos = yawObject.position;
-
-            // Restringir limites da arena 80x80
-            pos.x = Math.max(-78, Math.min(78, pos.x));
-            pos.z = Math.max(-78, Math.min(78, pos.z));
-
-            // Colisão AABB simples com as caixas e pilares da arena
-            walls.forEach(obstacle => {
-                const box = new THREE.Box3().setFromObject(obstacle);
-                
-                // Expande a caixa do obstáculo com o raio do jogador para teste de colisão
-                const playerBox = new THREE.Box3(
-                    new THREE.Vector3(pos.x - playerRadius, pos.y - player.height, pos.z - playerRadius),
-                    new THREE.Vector3(pos.x + playerRadius, pos.y + 0.2, pos.z + playerRadius)
-                );
-
-                if (box.intersectsBox(playerBox)) {
-                    // Empurrar jogador para fora da colisão baseando-se na menor penetração
-                    const overlapX = Math.min(box.max.x - playerBox.min.x, playerBox.max.x - box.min.x);
-                    const overlapZ = Math.min(box.max.z - playerBox.min.z, playerBox.max.z - box.min.z);
-
-                    if (overlapX < overlapZ) {
-                        if (pos.x < obstacle.position.x) {
-                            pos.x -= overlapX;
-                        } else {
-                            pos.x += overlapX;
-                        }
-                    } else {
-                        if (pos.z < obstacle.position.z) {
-                            pos.z -= overlapZ;
-                        } else {
-                            pos.z += overlapZ;
-                        }
-                    }
-                }
-            });
-        }
-
-        // --- 12. DESENHO DO MINIMAPA (2D Canvas) ---
-        function drawMinimap() {
-            minimapCtx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-            minimapCtx.fillRect(0, 0, 128, 128);
-
-            // Escala de conversão para caber arena 160x160 em canvas 128x128
-            const scale = 128 / 160;
-            const center = 64;
-
-            // Desenhar os obstáculos do mapa
-            minimapCtx.fillStyle = '#475569';
-            walls.forEach(w => {
-                const cx = center + w.position.x * scale;
-                const cz = center + w.position.z * scale;
-                minimapCtx.fillRect(cx - 2, cz - 2, 4, 4);
-            });
-
-            // Inimigos no Minimapa (Pontos vermelhos)
-            minimapCtx.fillStyle = '#ef4444';
-            enemies.forEach(e => {
-                const cx = center + e.mesh.position.x * scale;
-                const cz = center + e.mesh.position.z * scale;
-                minimapCtx.beginPath();
-                minimapCtx.arc(cx, cz, 2.5, 0, Math.PI * 2);
-                minimapCtx.fill();
-            });
-
-            // Jogador (Ponto verde com seta de direção)
-            const px = center + yawObject.position.x * scale;
-            const pz = center + yawObject.position.z * scale;
-            minimapCtx.fillStyle = '#10b981';
-            minimapCtx.beginPath();
-            minimapCtx.arc(px, pz, 3.5, 0, Math.PI * 2);
-            minimapCtx.fill();
-
-            // Linha de direção do jogador
-            minimapCtx.strokeStyle = '#10b981';
-            minimapCtx.lineWidth = 1.5;
-            minimapCtx.beginPath();
-            minimapCtx.moveTo(px, pz);
-            minimapCtx.lineTo(
-                px + Math.sin(yawObject.rotation.y) * 10,
-                pz + Math.cos(yawObject.rotation.y) * 10
-            );
-            minimapCtx.stroke();
-        }
-
-        // --- 13. LOOP PRINCIPAL DO JOGO (requestAnimationFrame) ---
-        function animate() {
-            requestAnimationFrame(animate);
-
-            const delta = clock.getDelta();
-
-            // Medidor de FPS
-            framesCount++;
-            const now = performance.now();
-            if (now - lastFpsUpdate >= 1000) {
-                document.getElementById('fps-val').innerText = framesCount;
-                framesCount = 0;
-                lastFpsUpdate = now;
-            }
-
-            if (gameActive) {
-                // Atualiza partículas ativas
-                particles.forEach(group => {
-                    group.children.forEach(p => {
-                        p.position.x += p.userData.vx * delta;
-                        p.position.y += p.userData.vy * delta;
-                        p.position.z += p.userData.vz * delta;
-                        p.userData.vy -= 9.8 * delta; // gravidade na partícula
-                    });
-                });
-
-                // Suavizar rotação e recuo da arma de volta ao normal
-                weaponMesh.position.z += ( -0.5 - weaponMesh.position.z ) * 0.1;
-                weaponMesh.rotation.x += ( 0 - weaponMesh.rotation.x ) * 0.1;
-
-                // Passos Sonoros Dinâmicos
-                if ((moveForward || moveBackward || moveLeft || moveRight) && player.onGround) {
-                    const cycle = Math.sin(performance.now() * (player.isSprinting ? 0.015 : 0.01));
-                    if (cycle > 0.95 && !player.footstepFlag) {
-                        playSound('footstep');
-                        player.footstepFlag = true;
-                    } else if (cycle < 0) {
-                        player.footstepFlag = false;
-                    }
-                }
-
-                // Processar movimentação e física do jogador
-                processMovement(delta);
-                
-                // IA dos inimigos
-                updateEnemies(delta);
-
-                // Desenha o minimapa
-                drawMinimap();
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        function processMovement(delta) {
-            // Coletar direção
-            moveForward = keys['KeyW'];
-            moveBackward = keys['KeyS'];
-            moveLeft = keys['KeyA'];
-            moveRight = keys['KeyD'];
-            player.isSprinting = keys['ShiftLeft'];
-
-            // Reduzir velocidade se estiver andando de lado/trás ou correndo
-            let speed = currentClass.speed;
-            if (player.isSprinting) speed *= 1.5;
-
-            // Retomar velocidade normal após gravidade
-            player.velocity.x -= player.velocity.x * 10.0 * delta;
-            player.velocity.z -= player.velocity.z * 10.0 * delta;
-
-            // Aplicar gravidade progressiva
-            player.velocity.y -= 9.8 * 2.2 * delta; 
-
-            const direction = new THREE.Vector3();
-            direction.z = Number(moveForward) - Number(moveBackward);
-            direction.x = Number(moveRight) - Number(moveLeft);
-            direction.normalize(); // Garante movimento diagonal uniforme
-
-            // Mapeia inputs de acordo com o Yaw do jogador
-            if (moveForward || moveBackward) player.velocity.z -= direction.z * speed * 250.0 * delta;
-            if (moveLeft || moveRight) player.velocity.x -= direction.x * speed * 250.0 * delta;
-
-            // Mover câmera de acordo com velocidades
-            yawObject.translateOnAxis(new THREE.Vector3(1, 0, 0), -player.velocity.x * delta);
-            yawObject.translateOnAxis(new THREE.Vector3(0, 0, 1), -player.velocity.z * delta);
-            yawObject.position.y += player.velocity.y * delta;
-
-            // Detecção básica de altura do chão (Arena plana no y=0 + plataformas)
-            let groundHeight = player.height;
-
-            // Plataforma Central (y=4) colisão superior
-            if (Math.abs(yawObject.position.x) < 8 && Math.abs(yawObject.position.z) < 8) {
-                groundHeight = 4 + player.height;
-            }
-
-            if (yawObject.position.y < groundHeight) {
-                player.velocity.y = 0;
-                yawObject.position.y = groundHeight;
-                player.onGround = true;
-            } else {
-                player.onGround = false;
-            }
-
-            // Ação de Pular
-            if (keys['Space'] && player.onGround) {
-                player.velocity.y = 10.5; // Força do pulo
-                player.onGround = false;
-            }
-
-            // Processar colisões com caixas e obstáculos
-            checkCollisions();
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        // --- 14. EVENTO INICIALIZAÇÃO ---
-        window.onload = function() {
-            initEngine();
-            animate();
-        };
-
-    </script>
-</body>
-</html>
-
-```
-innerWidth, window.innerHeight);
-        }
-
-        // --- 14. EVENTO INICIALIZAÇÃO ---
-        window.onload = function() {
-            initEngine();
-            animate();
-        };
-
-    </script>
+      }
+    }
+
+    // Clamp to map
+    const half = CFG.MAP_SIZE/2 - 0.5;
+    e.x = clamp(e.x,-half,half);
+    e.z = clamp(e.z,-half,half);
+  }
+}
+
+function isBlocked(ax,ay,az, bx,by,bz) {
+  const dx=bx-ax, dy=by-ay, dz=bz-az;
+  const len=Math.hypot(dx,dy,dz);
+  const r = castRay(ax,ay,az, dx/len,dy/len,dz/len, len-0.5);
+  return r.box !== null;
+}
+
+// ── PLAYER UPDATE ────────────────────────────────────────────────
+let stepTimer = 0;
+
+function updatePlayer(now) {
+  if(!mouse.locked) return;
+
+  // Camera rotation
+  const sens = 0.002;
+  player.yaw   += mouse.dx * sens;
+  player.pitch  = clamp(player.pitch - mouse.dy * sens, -Math.PI/2+0.05, Math.PI/2-0.05);
+  mouse.dx = 0; mouse.dy = 0;
+
+  // Movement
+  const spd = CFG.MOVE_SPEED * (keys['ShiftLeft']||keys['ShiftRight'] ? CFG.RUN_MULT : 1.0);
+  player.running = !!(keys['ShiftLeft']||keys['ShiftRight']);
+  let mx=0, mz=0;
+  if(keys['KeyW']||keys['ArrowUp'])    { mx+=Math.sin(player.yaw);   mz+=Math.cos(player.yaw); }
+  if(keys['KeyS']||keys['ArrowDown'])  { mx-=Math.sin(player.yaw);   mz-=Math.cos(player.yaw); }
+  if(keys['KeyA']||keys['ArrowLeft'])  { mx+=Math.cos(player.yaw);   mz-=Math.sin(player.yaw); }
+  if(keys['KeyD']||keys['ArrowRight']) { mx-=Math.cos(player.yaw);   mz+=Math.sin(player.yaw); }
+  const ml = Math.hypot(mx,mz);
+  if(ml>0) { mx/=ml; mz/=ml; }
+
+  const dt60 = deltaTime * 60;
+  player.vx = mx * spd * dt60;
+  player.vz = mz * spd * dt60;
+
+  // Jump
+  if((keys['Space']) && player.onGround) {
+    player.vy = CFG.JUMP_VEL;
+    player.onGround = false;
+  }
+  player.vy -= CFG.GRAVITY * dt60;
+
+  player.x += player.vx;
+  player.y += player.vy * dt60;
+  player.z += player.vz;
+  player.onGround = false;
+
+  resolvePlayer();
+
+  // Boundary
+  const half = CFG.MAP_SIZE/2 - 0.5;
+  player.x = clamp(player.x,-half,half);
+  player.z = clamp(player.z,-half,half);
+
+  // Step sound
+  if(ml > 0 && player.onGround) {
+    stepTimer -= deltaTime;
+    if(stepTimer <= 0) { playStep(); stepTimer = player.running ? 0.25 : 0.4; }
+  }
+
+  // Reload tick
+  if(player.reloading) {
+    player.reloadTimer -= deltaTime * 1000;
+    if(player.reloadTimer <= 0) finishReload();
+  }
+
+  // Auto fire
+  const w = WEAPONS[player.weapon];
+  if(w.auto && mouse.buttons[0] && !player.reloading && player.ammo > 0) {
+    if(now - player.lastShot >= w.rof) shoot(now);
+  }
+}
+
+// ── SHOOTING ─────────────────────────────────────────────────────
+let muzzleFlash = 0;
+let swayAnim = 0, swayDir = 1;
+let recoilAnim = 0;
+
+function shoot(now) {
+  const w = WEAPONS[player.weapon];
+  if(player.ammo <= 0 || player.reloading) { if(player.ammo<=0) startReload(); return; }
+  if(now - player.lastShot < w.rof) return;
+
+  player.lastShot = now;
+  player.ammo--;
+  player.shots++;
+  playShot(player.weapon);
+  muzzleFlash = 0.12;
+  recoilAnim = 1;
+  swayAnim += swayDir * 0.3;
+
+  // Spread
+  const spread = w.spread;
+  const rdx = (Math.random()-0.5)*spread;
+  const rdy = (Math.random()-0.5)*spread;
+
+  // Ray direction (view space → world)
+  const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  let dx = sy*cp + rdx;
+  let dy = -sp + rdy;
+  let dz = cy*cp;
+  const dlen = Math.hypot(dx,dy,dz);
+  dx/=dlen; dy/=dlen; dz/=dlen;
+
+  const eyeY = player.y + 0.4;
+
+  // Hit enemies first
+  let hitEnemy = null, hitT = Infinity, hitIsHead = false;
+  for(const e of enemies) {
+    if(!e.alive) continue;
+    // body box
+    const bodyT = rayBox(player.x,eyeY,player.z, dx,dy,dz,
+      {x:e.x,y:e.y,z:e.z, w:0.7,h:1.4,d:0.7});
+    // head box (slightly above)
+    const headT = rayBox(player.x,eyeY,player.z, dx,dy,dz,
+      {x:e.x,y:e.y+0.8,z:e.z, w:0.45,h:0.45,d:0.45});
+    const bestT = Math.min(bodyT, headT);
+    const isHead = headT < bodyT;
+    if(bestT < hitT) { hitT=bestT; hitEnemy=e; hitIsHead=isHead; }
+  }
+
+  // Hit map
+  const mapHit = castRay(player.x,eyeY,player.z, dx,dy,dz);
+
+  if(hitEnemy && hitT < mapHit.t) {
+    const dmg = Math.round(w.damage * (hitIsHead ? w.hs : 1));
+    hitEnemy.hp -= dmg;
+    player.hits++;
+    showHitMarker(hitIsHead);
+    spawnBlood(
+      player.x + dx*hitT,
+      eyeY + dy*hitT,
+      player.z + dz*hitT
+    );
+    if(hitEnemy.hp <= 0) killEnemy(hitEnemy, hitIsHead);
+    // trail
+    bulletTrails.push({
+      x1:player.x, y1:eyeY, z1:player.z,
+      x2:player.x+dx*hitT, y2:eyeY+dy*hitT, z2:player.z+dz*hitT,
+      life:0.1, maxLife:0.1
+    });
+  } else if(mapHit.box) {
+    // Impact particles + decal
+    const ix = player.x + dx*mapHit.t;
+    const iy = eyeY    + dy*mapHit.t;
+    const iz = player.z + dz*mapHit.t;
+    spawnImpact(ix,iy,iz);
+    decals.push({x:ix,y:iy,z:iz,life:8});
+    bulletTrails.push({
+      x1:player.x, y1:eyeY, z1:player.z,
+      x2:ix, y2:iy, z2:iz,
+      life:0.1, maxLife:0.1
+    });
+  }
+
+  if(player.ammo <= 0) startReload();
+  updateHUD();
+}
+
+function startReload() {
+  if(player.reloading || player.reserve <= 0) return;
+  player.reloading = true;
+  const w = WEAPONS[player.weapon];
+  player.reloadTimer = w.reload;
+  playReload();
+  document.getElementById('reloadMsg').style.display='block';
+}
+
+function finishReload() {
+  const w = WEAPONS[player.weapon];
+  const need = w.ammo - player.ammo;
+  const give = Math.min(need, player.reserve);
+  player.ammo += give;
+  player.reserve -= give;
+  player.reloading = false;
+  document.getElementById('reloadMsg').style.display='none';
+  updateHUD();
+}
+
+function switchWeapon(name) {
+  if(player.reloading) return;
+  player.weapon = name;
+  const w = WEAPONS[name];
+  player.ammo = w.ammo;
+  player.reserve = w.reserve;
+  updateHUD();
+  updateWeaponName();
+}
+
+// ── KILL / DAMAGE ─────────────────────────────────────────────────
+function killEnemy(e, headshot) {
+  e.alive = false;
+  e.respawnTimer = CFG.ENEMY_RESPAWN / 1000;
+  player.kills++;
+  if(headshot) player.headshots++;
+  spawnDeathParticles(e.x, e.y, e.z, e.col);
+  addKillFeed(headshot);
+  document.getElementById('killsVal').textContent = player.kills;
+  if(headshot) showNotify('⚡ HEADSHOT!');
+  if(player.kills % 5 === 0) showNotify(`🔥 ${player.kills} KILLS!`);
+}
+
+function damagePlayer(amt) {
+  player.hp = Math.max(0, player.hp - amt);
+  playHurt();
+  damageFlashAmt = 1;
+  updateHUD();
+  if(player.hp <= 0) gameOver();
+}
+
+// ── PARTICLES ────────────────────────────────────────────────────
+function spawnBlood(x,y,z) {
+  for(let i=0;i<8;i++) particles.push({
+    x,y,z,
+    vx:randRange(-0.06,0.06), vy:randRange(0.02,0.1), vz:randRange(-0.06,0.06),
+    life:randRange(0.3,0.7), maxLife:0.7,
+    r:0.9, g:0.1, b:0.1, size:0.06,
+  });
+}
+
+function spawnImpact(x,y,z) {
+  for(let i=0;i<6;i++) particles.push({
+    x,y,z,
+    vx:randRange(-0.05,0.05), vy:randRange(0,0.08), vz:randRange(-0.05,0.05),
+    life:randRange(0.2,0.5), maxLife:0.5,
+    r:1, g:0.8, b:0.3, size:0.04,
+  });
+}
+
+function spawnDeathParticles(x,y,z,col) {
+  for(let i=0;i<20;i++) {
+    const a=Math.random()*TAU, s=randRange(0.05,0.15);
+    particles.push({
+      x,y,z,
+      vx:Math.cos(a)*s, vy:randRange(0.05,0.2), vz:Math.sin(a)*s,
+      life:randRange(0.5,1.2), maxLife:1.2,
+      r:col[0], g:col[1], b:col[2], size:0.08,
+    });
+  }
+}
+
+function updateParticles() {
+  const dt60 = deltaTime*60;
+  for(let i=particles.length-1;i>=0;i--) {
+    const p=particles[i];
+    p.x+=p.vx*dt60; p.y+=p.vy*dt60; p.z+=p.vz*dt60;
+    p.vy -= 0.005*dt60;
+    p.life -= deltaTime;
+    if(p.life<=0) particles.splice(i,1);
+  }
+  for(let i=bulletTrails.length-1;i>=0;i--) {
+    bulletTrails[i].life -= deltaTime;
+    if(bulletTrails[i].life<=0) bulletTrails.splice(i,1);
+  }
+  for(let i=decals.length-1;i>=0;i--) {
+    decals[i].life -= deltaTime;
+    if(decals[i].life<=0) decals.splice(i,1);
+  }
+}
+
+// ── RENDERER (Software 3D / Canvas2D) ────────────────────────────
+// Using Canvas2D software rasterizer for broad compatibility
+let W,H, halfW,halfH, focalLen;
+let depthBuffer = [];
+
+function initRenderer() {
+  canvas = document.getElementById('canvas');
+  ctx2d = canvas.getContext('2d');
+  resizeCanvas();
+}
+
+function resizeCanvas() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  halfW = W/2; halfH = H/2;
+  focalLen = halfW / Math.tan(CFG.FOV/2);
+  depthBuffer = new Float32Array(W*H);
+}
+
+// Project 3D → 2D (returns {sx,sy,sz} sz=depth)
+function project(wx,wy,wz) {
+  // Transform to camera space
+  const dx = wx - player.x;
+  const dy = wy - player.y - 0.4;
+  const dz = wz - player.z;
+
+  const cy = Math.cos(-player.yaw),  sy = Math.sin(-player.yaw);
+  const cp = Math.cos(-player.pitch),sp = Math.sin(-player.pitch);
+
+  // Yaw
+  let rx = dx*cy - dz*sy;
+  let ry = dy;
+  let rz = dx*sy + dz*cy;
+  // Pitch
+  let fy = ry*cp - rz*sp;
+  let fz = ry*sp + rz*cp;
+
+  if(fz <= 0.05) return null; // behind camera
+
+  const sx = halfW + rx/fz * focalLen;
+  const sy2= halfH - fy/fz * focalLen;
+  return {sx, sy:sy2, sz:fz};
+}
+
+// ── Draw a box (all 6 faces) ─────────────────────────────────────
+function drawBox(box, highlight) {
+  const {x,y,z,w,h,d,col} = box;
+  const hw=w/2, hh=h/2, hd=d/2;
+  // 8 corners
+  const corners = [
+    [x-hw, y-hh, z-hd],[x+hw, y-hh, z-hd],
+    [x+hw, y+hh, z-hd],[x-hw, y+hh, z-hd],
+    [x-hw, y-hh, z+hd],[x+hw, y-hh, z+hd],
+    [x+hw, y+hh, z+hd],[x-hw, y+hh, z+hd],
+  ];
+  const proj = corners.map(([cx,cy,cz])=>project(cx,cy,cz));
+
+  // 6 faces: indices, normal direction for culling & lighting
+  const faces = [
+    {idx:[3,2,1,0], nx:0,ny:0,nz:-1, li:0.9},  // front
+    {idx:[4,5,6,7], nx:0,ny:0,nz:1,  li:0.6},  // back
+    {idx:[0,1,5,4], nx:0,ny:-1,nz:0, li:0.3},  // bottom
+    {idx:[7,6,2,3], nx:0,ny:1,nz:0,  li:1.0},  // top
+    {idx:[0,4,7,3], nx:-1,ny:0,nz:0, li:0.7},  // left
+    {idx:[1,2,6,5], nx:1,ny:0,nz:0,  li:0.75}, // right
+  ];
+
+  for(const face of faces) {
+    const pts = face.idx.map(i=>proj[i]);
+    if(pts.some(p=>!p)) continue;
+
+    // Backface culling (rough)
+    const avgZ = pts.reduce((s,p)=>s+p.sz,0)/4;
+    if(avgZ > 60) continue;
+
+    // Check if any projected point is on-screen
+    const onScreen = pts.some(p=>p.sx>-100&&p.sx<W+100&&p.sy>-100&&p.sy<H+100);
+    if(!onScreen) continue;
+
+    const li = face.li;
+    const br = highlight ? Math.min(1,col[0]*li*1.5) : col[0]*li;
+    const bg = highlight ? Math.min(1,col[1]*li*1.5) : col[1]*li;
+    const bb = highlight ? Math.min(1,col[2]*li*1.5) : col[2]*li;
+    const r=Math.round(br*255), g=Math.round(bg*255), b=Math.round(bb*255);
+    const a = Math.min(1, 1.2 - avgZ/50); // fade with distance
+    if(a <= 0) continue;
+
+    ctx2d.fillStyle = `rgba(${r},${g},${b},${a})`;
+    ctx2d.beginPath();
+    ctx2d.moveTo(pts[0].sx, pts[0].sy);
+    for(let i=1;i<pts.length;i++) ctx2d.lineTo(pts[i].sx, pts[i].sy);
+    ctx2d.closePath();
+    ctx2d.fill();
+
+    // Edge stroke for low-poly look
+    ctx2d.strokeStyle = `rgba(${Math.min(255,r+30)},${Math.min(255,g+30)},${Math.min(255,b+30)},${a*0.4})`;
+    ctx2d.lineWidth = 0.5;
+    ctx2d.stroke();
+  }
+}
+
+// ── Draw enemy (humanoid low-poly) ───────────────────────────────
+function drawEnemy(e) {
+  if(!e.alive) return;
+  const dist = dist2d(player.x,player.z, e.x,e.z);
+  if(dist > 35) return;
+
+  const [r,g,b] = e.col;
+  // body
+  drawBox({x:e.x,y:e.y+0.2,z:e.z,w:0.55,h:0.9,d:0.35,col:[r,g,b]});
+  // head
+  drawBox({x:e.x,y:e.y+0.9,z:e.z,w:0.42,h:0.42,d:0.42,col:[r*1.2,g*0.8,b*0.8]});
+  // legs
+  drawBox({x:e.x-0.15,y:e.y-0.45,z:e.z,w:0.22,h:0.7,d:0.22,col:[r*0.7,g*0.7,b*0.7]});
+  drawBox({x:e.x+0.15,y:e.y-0.45,z:e.z,w:0.22,h:0.7,d:0.22,col:[r*0.7,g*0.7,b*0.7]});
+  // arms
+  const armSway = Math.sin(Date.now()*0.005)*0.1;
+  drawBox({x:e.x-0.38,y:e.y+0.15+armSway,z:e.z,w:0.18,h:0.65,d:0.18,col:[r,g,b]});
+  drawBox({x:e.x+0.38,y:e.y+0.15-armSway,z:e.z,w:0.18,h:0.65,d:0.18,col:[r,g,b]});
+
+  // Health bar (billboard)
+  if(e.hp < e.maxHp) {
+    const p = project(e.x, e.y+1.5, e.z);
+    if(p && p.sz > 0) {
+      const bw = 40; const bh = 5;
+      ctx2d.fillStyle='#111';
+      ctx2d.fillRect(p.sx-bw/2, p.sy-bh/2, bw, bh);
+      const pct = e.hp/e.maxHp;
+      ctx2d.fillStyle=`rgb(${Math.round((1-pct)*255)},${Math.round(pct*200)},30)`;
+      ctx2d.fillRect(p.sx-bw/2, p.sy-bh/2, bw*pct, bh);
+    }
+  }
+}
+
+// ── Draw particles ───────────────────────────────────────────────
+function drawParticles() {
+  for(const p of particles) {
+    const pj = project(p.x, p.y, p.z);
+    if(!pj || pj.sz<0) continue;
+    const alpha = p.life/p.maxLife;
+    const size = Math.max(1, p.size * focalLen/pj.sz);
+    ctx2d.fillStyle = `rgba(${Math.round(p.r*255)},${Math.round(p.g*255)},${Math.round(p.b*255)},${alpha})`;
+    ctx2d.fillRect(pj.sx-size/2, pj.sy-size/2, size, size);
+  }
+  // Bullet trails
+  for(const t of bulletTrails) {
+    const p1 = project(t.x1,t.y1,t.z1);
+    const p2 = project(t.x2,t.y2,t.z2);
+    if(!p1||!p2) continue;
+    const alpha = t.life/t.maxLife;
+    ctx2d.strokeStyle=`rgba(255,240,100,${alpha*0.8})`;
+    ctx2d.lineWidth=1.5;
+    ctx2d.beginPath();
+    ctx2d.moveTo(p1.sx,p1.sy);
+    ctx2d.lineTo(p2.sx,p2.sy);
+    ctx2d.stroke();
+  }
+}
+
+// ── Draw weapon (canvas 2D) ───────────────────────────────────────
+let weaponBob = 0, weaponBobDir = 1;
+const weaponCvs = document.getElementById('weaponCanvas');
+const weaponCtx = weaponCvs.getContext('2d');
+
+function drawWeapon() {
+  const wc = weaponCtx;
+  wc.clearRect(0,0,300,200);
+  if(state!=='playing') return;
+
+  const W=300, H=200;
+  const moving = (keys['KeyW']||keys['KeyS']||keys['KeyA']||keys['KeyD']);
+  if(moving && player.onGround) {
+    weaponBob += 0.15 * weaponBobDir * deltaTime * 60;
+    if(Math.abs(weaponBob) > 1) weaponBobDir *= -1;
+  } else {
+    weaponBob *= 0.85;
+  }
+
+  const bobY = Math.sin(weaponBob*Math.PI)*4;
+  const bobX = weaponBob*3;
+  const recoil = recoilAnim * 15;
+  recoilAnim *= 0.7;
+  swayAnim *= 0.85;
+
+  const ox = W*0.55 + bobX + swayAnim*8;
+  const oy = H*0.6  + bobY + recoil;
+
+  // Muzzle flash
+  if(muzzleFlash > 0) {
+    const grd = wc.createRadialGradient(ox-30, oy-40, 0, ox-30, oy-40, 25);
+    grd.addColorStop(0,'rgba(255,255,200,0.9)');
+    grd.addColorStop(0.5,'rgba(255,150,0,0.5)');
+    grd.addColorStop(1,'rgba(255,100,0,0)');
+    wc.fillStyle=grd;
+    wc.beginPath();
+    wc.arc(ox-30, oy-40, 25, 0, TAU);
+    wc.fill();
+    muzzleFlash -= deltaTime * 3;
+  }
+
+  const w = player.weapon;
+  // Draw weapon shape based on type
+  wc.save();
+  wc.translate(ox, oy);
+
+  if(w==='rifle') {
+    // Body
+    wc.fillStyle='#2a2a3a'; wc.fillRect(-20,-10,90,18);
+    // Grip
+    wc.fillStyle='#1a1a28'; wc.fillRect(30,5,15,30);
+    // Barrel
+    wc.fillStyle='#3a3a4a'; wc.fillRect(-60,-6,45,10);
+    // Sight
+    wc.fillStyle='#444'; wc.fillRect(-10,-18,20,10);
+    // Magazine
+    wc.fillStyle='#1a1a28'; wc.fillRect(20,8,18,25);
+    // Details
+    wc.fillStyle='#555'; wc.fillRect(-55,-3,40,4);
+    wc.fillStyle=`rgba(0,255,200,${player.ammo/30})`;
+    wc.fillRect(0,-8,player.ammo*2,4);
+  } else if(w==='sniper') {
+    // Long body
+    wc.fillStyle='#1e1e2e'; wc.fillRect(-80,-8,120,14);
+    // Scope
+    wc.fillStyle='#2a2a3a'; wc.fillRect(-20,-22,40,16);
+    wc.fillStyle='#0af'; wc.fillRect(-18,-20,36,12);
+    wc.fillStyle='rgba(0,170,255,0.3)'; wc.fillRect(-16,-19,32,10);
+    // Barrel (long)
+    wc.fillStyle='#2e2e3e'; wc.fillRect(-100,-5,25,8);
+    // Grip
+    wc.fillStyle='#151520'; wc.fillRect(20,5,14,32);
+    // Bipod
+    wc.fillStyle='#333'; wc.fillRect(-70,5,4,20); wc.fillRect(-60,5,4,20);
+  } else {
+    // Pistol
+    wc.fillStyle='#252535'; wc.fillRect(-10,-10,55,16);
+    wc.fillStyle='#151525'; wc.fillRect(20,4,18,28);
+    wc.fillStyle='#2a2a3a'; wc.fillRect(-25,-7,18,10);
+    wc.fillStyle='#333'; wc.fillRect(30,4,12,22);
+    wc.fillStyle=`rgba(255,100,0,${player.ammo/12})`;
+    wc.fillRect(-5,-7,player.ammo*3,3);
+  }
+
+  // Reload animation
+  if(player.reloading) {
+    const prog = 1 - player.reloadTimer/WEAPONS[player.weapon].reload;
+    wc.rotate(prog * 0.3);
+  }
+  wc.restore();
+}
+
+// ── MINIMAP ───────────────────────────────────────────────────────
+const mmCvs = document.getElementById('minimapCanvas');
+const mmCtx = mmCvs.getContext('2d');
+
+function drawMinimap() {
+  const mc = mmCtx;
+  const S = 100, half = CFG.MAP_SIZE/2;
+  const scale = S/CFG.MAP_SIZE;
+  mc.clearRect(0,0,S,S);
+  mc.fillStyle='rgba(10,10,20,0.8)';
+  mc.fillRect(0,0,S,S);
+
+  // Boxes
+  for(const box of mapBoxes) {
+    if(box.y < 0) continue;
+    const px = (box.x+half)*scale, pz = (box.z+half)*scale;
+    const pw = box.w*scale, pd = box.d*scale;
+    mc.fillStyle=`rgb(${Math.round(box.col[0]*180)},${Math.round(box.col[1]*180)},${Math.round(box.col[2]*180)})`;
+    mc.fillRect(px-pw/2, pz-pd/2, pw, pd);
+  }
+
+  // Enemies
+  for(const e of enemies) {
+    if(!e.alive) continue;
+    mc.fillStyle=`rgb(${Math.round(e.col[0]*255)},${Math.round(e.col[1]*255)},${Math.round(e.col[2]*255)})`;
+    const ex=(e.x+half)*scale, ez=(e.z+half)*scale;
+    mc.fillRect(ex-2,ez-2,4,4);
+  }
+
+  // Player
+  const px=(player.x+half)*scale, pz=(player.z+half)*scale;
+  mc.fillStyle='#00ffe7';
+  mc.beginPath();
+  mc.arc(px,pz,3,0,TAU);
+  mc.fill();
+  // Direction
+  mc.strokeStyle='#00ffe7';
+  mc.lineWidth=1;
+  mc.beginPath();
+  mc.moveTo(px,pz);
+  mc.lineTo(px+Math.sin(player.yaw)*8, pz+Math.cos(player.yaw)*8);
+  mc.stroke();
+}
+
+// ── MAIN RENDER ──────────────────────────────────────────────────
+function render() {
+  if(state!=='playing') return;
+
+  // Sky gradient
+  const skyGrad = ctx2d.createLinearGradient(0,0,0,H);
+  skyGrad.addColorStop(0,'#050510');
+  skyGrad.addColorStop(0.6,'#0a0a20');
+  skyGrad.addColorStop(1,'#101018');
+  ctx2d.fillStyle = skyGrad;
+  ctx2d.fillRect(0,0,W,H);
+
+  // Sort boxes by camera distance (far first for painter's algo)
+  const sorted = [...mapBoxes].sort((a,b)=>{
+    const da=(a.x-player.x)**2+(a.z-player.z)**2;
+    const db=(b.x-player.x)**2+(b.z-player.z)**2;
+    return db-da;
+  });
+  for(const box of sorted) drawBox(box, false);
+
+  // Enemies (sort by dist)
+  const sortedE = [...enemies].sort((a,b)=>dist3d(b,player)-dist3d(a,player));
+  for(const e of sortedE) drawEnemy(e);
+
+  // Particles
+  drawParticles();
+
+  // Fog vignette
+  const vig = ctx2d.createRadialGradient(halfW,halfH,halfH*0.3,halfW,halfH,halfH*1.1);
+  vig.addColorStop(0,'rgba(0,0,0,0)');
+  vig.addColorStop(1,'rgba(0,0,0,0.45)');
+  ctx2d.fillStyle=vig;
+  ctx2d.fillRect(0,0,W,H);
+
+  // Weapon
+  drawWeapon();
+
+  // Minimap
+  drawMinimap();
+}
+
+// ── HUD UPDATE ────────────────────────────────────────────────────
+function updateHUD() {
+  const pct = player.hp/player.maxHp;
+  document.getElementById('healthFill').style.width = (pct*100)+'%';
+  document.getElementById('healthVal').textContent  = player.hp;
+  document.getElementById('ammoCur').textContent    = player.ammo;
+  document.getElementById('ammoMax').textContent    = player.reserve;
+  document.getElementById('killsVal').textContent   = player.kills;
+}
+
+function updateWeaponName() {
+  document.getElementById('weaponName').textContent = WEAPONS[player.weapon].name;
+}
+
+function showHitMarker(head) {
+  const hm = document.getElementById('hitMarker');
+  hm.style.opacity='1';
+  hm.style.borderColor = head ? 'gold' : 'var(--red)';
+  hitMarkerTimer = 0.15;
+}
+
+function addKillFeed(head) {
+  const kf = document.getElementById('killfeed');
+  const el = document.createElement('div');
+  el.className = 'kf-entry'+(head?' head':'');
+  el.textContent = head ? '💀 HEADSHOT KILL' : '💥 KILL';
+  kf.appendChild(el);
+  setTimeout(()=>el.remove(), 3000);
+}
+
+function showNotify(msg) {
+  const n = document.getElementById('notify');
+  n.textContent = msg;
+  n.classList.add('show');
+  notifyTimer = 2;
+}
+
+// ── GAME LOOP ────────────────────────────────────────────────────
+function loop(now) {
+  if(state !== 'playing') return;
+  requestAnimationFrame(loop);
+
+  deltaTime = Math.min((now - lastTime)/1000, 0.05);
+  lastTime = now;
+
+  // FPS counter
+  fpsSample++;
+  fpsBuffer.push(deltaTime);
+  if(fpsBuffer.length > 60) fpsBuffer.shift();
+  if(fpsSample % 15 === 0) {
+    const avg = fpsBuffer.reduce((a,b)=>a+b,0)/fpsBuffer.length;
+    fps = Math.round(1/avg);
+    document.getElementById('fpsVal').textContent = fps;
+  }
+
+  updatePlayer(now);
+  updateEnemies(now);
+  updateParticles();
+
+  // Timers
+  if(hitMarkerTimer > 0) {
+    hitMarkerTimer -= deltaTime;
+    if(hitMarkerTimer <= 0) document.getElementById('hitMarker').style.opacity='0';
+  }
+  damageFlashAmt = Math.max(0, damageFlashAmt - deltaTime*3);
+  document.getElementById('damageFlash').style.opacity = damageFlashAmt*0.7;
+
+  if(notifyTimer > 0) {
+    notifyTimer -= deltaTime;
+    if(notifyTimer <= 0) document.getElementById('notify').classList.remove('show');
+  }
+
+  render();
+}
+
+// ── GAME STATES ──────────────────────────────────────────────────
+function selectClass(el, cls) {
+  document.querySelectorAll('.class-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedClass = cls;
+}
+
+function startGame() {
+  initAudio();
+  buildMap();
+  enemies = [];
+  particles = [];
+  bulletTrails = [];
+  decals = [];
+
+  const cls = CLASSES[selectedClass];
+  Object.assign(player, {
+    x:0, y:0.6, z:-5,
+    yaw:0, pitch:0,
+    vx:0, vy:0, vz:0,
+    onGround:false, running:false,
+    hp:cls.hp, maxHp:cls.hp,
+    weapon:cls.weapon,
+    ammo:WEAPONS[cls.weapon].ammo,
+    reserve:WEAPONS[cls.weapon].reserve,
+    reloading:false, reloadTimer:0,
+    lastShot:0, kills:0, headshots:0,
+    shots:0, hits:0,
+    startTime:Date.now(),
+  });
+
+  for(let i=0;i<CFG.ENEMY_COUNT;i++) spawnEnemy();
+
+  state = 'playing';
+  document.getElementById('menuScreen').classList.add('hidden');
+  document.getElementById('gameoverScreen').classList.add('hidden');
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('weaponView').style.display='block';
+  updateHUD();
+  updateWeaponName();
+  document.getElementById('reloadMsg').style.display='none';
+
+  // Request pointer lock
+  canvas.requestPointerLock();
+
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function gameOver() {
+  state = 'gameover';
+  document.exitPointerLock();
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('weaponView').style.display='none';
+  document.getElementById('gameoverScreen').classList.remove('hidden');
+
+  const elapsed = Math.round((Date.now()-player.startTime)/1000);
+  const acc = player.shots > 0 ? Math.round(player.hits/player.shots*100) : 0;
+  document.getElementById('goKills').textContent  = player.kills;
+  document.getElementById('goHeads').textContent  = player.headshots;
+  document.getElementById('goAcc').textContent    = acc;
+  document.getElementById('goTime').textContent   = elapsed;
+}
+
+function restartGame() {
+  startGame();
+}
+
+// ── INPUT ────────────────────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  keys[e.code] = true;
+  if(state !== 'playing') return;
+  if(e.code === 'KeyR') startReload();
+  if(e.code === 'Digit1') switchWeapon('rifle');
+  if(e.code === 'Digit2') switchWeapon('sniper');
+  if(e.code === 'Digit3') switchWeapon('pistol');
+  if(e.code === 'F11') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+  if(e.code === 'Escape') { document.exitPointerLock(); }
+  if(e.code === 'Tab') { e.preventDefault(); } // prevent tab focus
+  e.stopPropagation();
+});
+
+document.addEventListener('keyup', e=>{
+  keys[e.code] = false;
+});
+
+document.addEventListener('mousemove', e=>{
+  if(!mouse.locked) return;
+  mouse.dx += e.movementX;
+  mouse.dy += e.movementY;
+});
+
+document.addEventListener('mousedown', e=>{
+  mouse.buttons[e.button] = true;
+  if(state!=='playing') return;
+  if(!mouse.locked) { canvas.requestPointerLock(); return; }
+  if(e.button===0) {
+    const w = WEAPONS[player.weapon];
+    if(!w.auto) shoot(performance.now());
+  }
+});
+
+document.addEventListener('mouseup', e=>{
+  mouse.buttons[e.button] = false;
+});
+
+document.addEventListener('pointerlockchange', ()=>{
+  mouse.locked = !!document.pointerLockElement;
+});
+
+window.addEventListener('resize', ()=>{
+  resizeCanvas();
+});
+
+// ── INIT ─────────────────────────────────────────────────────────
+initRenderer();
+// Initial draw of menu background
+(function menuAnim() {
+  if(state==='menu') {
+    ctx2d.fillStyle='#050508';
+    ctx2d.fillRect(0,0,W,H);
+    // particles in bg
+    const t = Date.now()*0.001;
+    for(let i=0;i<30;i++) {
+      const x = ((Math.sin(i*2.4+t*0.3)*0.5+0.5)*W);
+      const y = ((Math.cos(i*1.7+t*0.2)*0.5+0.5)*H);
+      const r = Math.sin(i+t)*3+4;
+      ctx2d.fillStyle=`rgba(0,255,230,${0.05+Math.sin(i+t)*0.03})`;
+      ctx2d.beginPath();
+      ctx2d.arc(x,y,r,0,TAU);
+      ctx2d.fill();
+    }
+    requestAnimationFrame(menuAnim);
+  }
+})();
+</script>
 </body>
 </html>
