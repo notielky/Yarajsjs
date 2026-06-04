@@ -1,398 +1,432 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Snake Game Premium</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOL</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
 
-<style>
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family:'Segoe UI',sans-serif;
-}
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #400000 0%, #250000 50%, #120000 100%);
+            font-family: 'Cinzel', 'Georgia', serif;
+        }
 
-body{
-    min-height:100vh;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    background:linear-gradient(135deg,#0f172a,#1e293b,#0f172a);
-    color:white;
-    overflow:hidden;
-}
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
 
-.container{
-    text-align:center;
-    width:100%;
-    max-width:600px;
-    padding:20px;
-}
+        /* Texto Cinematográfico */
+        #ui-overlay {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            text-align: center;
+            pointer-events: none;
+            width: 100%;
+        }
 
-h1{
-    margin-bottom:10px;
-    font-size:2.2rem;
-    color:#4ade80;
-    text-shadow:0 0 15px rgba(74,222,128,.5);
-}
+        .title {
+            color: #ffffff;
+            font-size: 2.8rem;
+            font-weight: 300;
+            letter-spacing: 0.3rem;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.6), 
+                         0 0 20px rgba(255, 0, 50, 0.8), 
+                         0 0 40px rgba(255, 0, 50, 0.4);
+            animation: pulseGlow 4s ease-in-out infinite;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+        }
 
-.info{
-    display:flex;
-    justify-content:space-between;
-    margin-bottom:15px;
-    font-size:1.1rem;
-    font-weight:bold;
-}
+        @keyframes pulseGlow {
+            0%, 100% {
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.6), 0 0 20px rgba(255, 0, 50, 0.8), 0 0 40px rgba(255, 0, 50, 0.4);
+                transform: scale(1);
+            }
+            50% {
+                text-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 0 0 35px rgba(255, 0, 50, 1), 0 0 60px rgba(255, 0, 50, 0.6);
+                transform: scale(1.02);
+            }
+        }
 
-canvas{
-    width:100%;
-    max-width:500px;
-    background:#111827;
-    border:4px solid #4ade80;
-    border-radius:15px;
-    box-shadow:0 0 30px rgba(74,222,128,.3);
-}
+        /* Tela de Início (Necessária para contornar o bloqueio de Autoplay de áudio) */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #250000 0%, #050000 100%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1.5s ease;
+        }
 
-.controls{
-    margin-top:20px;
-    display:grid;
-    grid-template-columns:repeat(3,70px);
-    justify-content:center;
-    gap:10px;
-}
+        .enter-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            color: #ffffff;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            letter-spacing: 0.2rem;
+            transition: all 0.4s ease;
+            box-shadow: 0 0 15px rgba(255, 0, 50, 0.2);
+            text-transform: uppercase;
+        }
 
-.controls button{
-    width:70px;
-    height:70px;
-    border:none;
-    border-radius:15px;
-    background:#22c55e;
-    color:white;
-    font-size:28px;
-    cursor:pointer;
-    transition:.2s;
-}
+        .enter-btn:hover {
+            border-color: #ff3344;
+            box-shadow: 0 0 25px rgba(255, 0, 50, 0.6);
+            text-shadow: 0 0 5px #fff;
+            transform: translateY(-2px);
+        }
 
-.controls button:active{
-    transform:scale(.9);
-}
-
-.hidden{
-    visibility:hidden;
-}
-
-.overlay{
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.8);
-    display:none;
-    justify-content:center;
-    align-items:center;
-    z-index:10;
-}
-
-.game-over-box{
-    background:#1e293b;
-    padding:30px;
-    border-radius:20px;
-    text-align:center;
-    animation:pop .4s ease;
-}
-
-.game-over-box h2{
-    color:#ef4444;
-    margin-bottom:10px;
-}
-
-.game-over-box button{
-    margin-top:15px;
-    padding:12px 25px;
-    border:none;
-    border-radius:10px;
-    background:#22c55e;
-    color:white;
-    cursor:pointer;
-    font-size:16px;
-}
-
-@keyframes pop{
-    from{
-        transform:scale(.5);
-        opacity:0;
-    }
-    to{
-        transform:scale(1);
-        opacity:1;
-    }
-}
-
-@media (min-width:768px){
-    .controls{
-        display:none;
-    }
-}
-</style>
+        /* Ajustes Responsivos */
+        @media (max-width: 768px) {
+            .title {
+                font-size: 1.8rem;
+                letter-spacing: 0.15rem;
+            }
+            .enter-btn {
+                padding: 12px 30px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@300;400&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<div class="container">
-    <h1>🐍 Snake Game</h1>
-
-    <div class="info">
-        <span>Pontos: <span id="score">0</span></span>
-        <span>Recorde: <span id="highScore">0</span></span>
+    <div id="splash-screen">
+        <button class="enter-btn" id="start-btn">LOL</button>
     </div>
 
-    <canvas id="game" width="500" height="500"></canvas>
-
-    <div class="controls">
-        <div class="hidden"></div>
-        <button onclick="changeDirection('up')">⬆</button>
-        <div class="hidden"></div>
-
-        <button onclick="changeDirection('left')">⬅</button>
-        <button onclick="changeDirection('down')">⬇</button>
-        <button onclick="changeDirection('right')">➡</button>
+    <div id="ui-overlay">
+        <h1 class="title" id="main-title">LOL</h1>
     </div>
-</div>
 
-<div class="overlay" id="gameOverScreen">
-    <div class="game-over-box">
-        <h2>💀 Game Over</h2>
-        <p id="finalScore"></p>
-        <button onclick="restartGame()">Jogar Novamente</button>
-    </div>
-</div>
+    <div id="canvas-container"></div>
 
-<script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+    <audio id="romantic-music" loop>
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    </audio>
 
-const box = 25;
-const rows = canvas.width / box;
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 
-let snake;
-let food;
-let direction;
-let score;
-let game;
-let highScore = localStorage.getItem("snakeHighScore") || 0;
+    <script>
+        let scene, camera, renderer, composer;
+        let mainHeart, starField, particleOrbit, secondaryHearts = [];
+        
+        const container = document.getElementById('canvas-container');
+        const startBtn = document.getElementById('start-btn');
+        const splash = document.getElementById('splash-screen');
+        const title = document.getElementById('main-title');
+        const music = document.getElementById('romantic-music');
 
-document.getElementById("highScore").textContent = highScore;
+        music.volume = 0.4;
 
-function initGame(){
-    snake = [{x:10,y:10}];
-    direction = "RIGHT";
-    score = 0;
+        startBtn.addEventListener('click', () => {
+            splash.style.opacity = '0';
+            setTimeout(() => {
+                splash.style.display = 'none';
+                title.style.opacity = '1';
+                music.play().catch(err => console.log("Áudio bloqueado ou link inválido: ", err));
+            }, 1500);
+            init();
+            animate();
+        });
 
-    food = {
-        x: Math.floor(Math.random()*rows),
-        y: Math.floor(Math.random()*rows)
-    };
+        function init() {
+            // --- CENA & CÂMERA ---
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x1a0000, 0.035);
 
-    document.getElementById("score").textContent = score;
-    document.getElementById("gameOverScreen").style.display = "none";
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 8);
 
-    clearInterval(game);
-    game = setInterval(draw,50);
-}
+            // --- RENDERIZADOR ---
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            container.appendChild(renderer.domElement);
 
-function playBeep(freq,duration){
-    try{
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+            // --- ILUMINAÇÃO ---
+            const ambientLight = new THREE.AmbientLight(0xff0022, 0.6);
+            scene.add(ambientLight);
 
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.5);
+            dirLight1.position.set(5, 10, 7);
+            scene.add(dirLight1);
 
-        osc.frequency.value = freq;
-        osc.type = "square";
+            const dirLight2 = new THREE.DirectionalLight(0xff3366, 1.5);
+            dirLight2.position.set(-5, -5, 5);
+            scene.add(dirLight2);
 
-        osc.start();
+            const pointLight = new THREE.PointLight(0xff0033, 3, 15);
+            pointLight.position.set(0, 0, 2);
+            scene.add(pointLight);
 
-        gain.gain.exponentialRampToValueAtTime(
-            0.00001,
-            audioCtx.currentTime + duration/1000
-        );
+            // --- CORAÇÃO PRINCIPAL ---
+            const heartShape = new THREE.Shape();
+            heartShape.moveTo(0, 0.5);
+            heartShape.bezierCurveTo(0, 1.2, 0.8, 2.0, 2.0, 2.0);
+            heartShape.bezierCurveTo(3.5, 2.0, 3.5, 0.6, 3.5, 0.6);
+            heartShape.bezierCurveTo(3.5, -0.7, 2.2, -2.0, 0, -3.5);
+            heartShape.bezierCurveTo(-2.2, -2.0, -3.5, -0.7, -3.5, 0.6);
+            heartShape.bezierCurveTo(-3.5, 0.6, -3.5, 2.0, -2.0, 2.0);
+            heartShape.bezierCurveTo(-0.8, 2.0, 0, 1.2, 0, 0.5);
 
-        osc.stop(audioCtx.currentTime + duration/1000);
-    }catch(e){}
-}
+            const extrudeSettings = {
+                depth: 0.8,
+                bevelEnabled: true,
+                bevelSegments: 12,
+                steps: 1,
+                bevelSize: 0.4,
+                bevelThickness: 0.4
+            };
 
-function draw(){
+            const heartGeometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
+            heartGeometry.center();
+            heartGeometry.scale(0.5, 0.5, 0.5);
 
-    ctx.fillStyle = "#111827";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
+            // Material de Cristal / Vidro Premium
+            const crystalMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0xff0a33,
+                emissive: 0x3a0005,
+                roughness: 0.05,
+                metalness: 0.1,
+                transmission: 0.9,  
+                ior: 1.55,          
+                side: THREE.DoubleSide,
+                depthWrite: true,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.05,
+                thickness: 1.5
+            });
 
-    // comida
-    ctx.fillStyle = "#ef4444";
-    ctx.beginPath();
-    ctx.arc(
-        food.x*box+box/2,
-        food.y*box+box/2,
-        box/2.5,
-        0,
-        Math.PI*2
-    );
-    ctx.fill();
+            mainHeart = new THREE.Mesh(heartGeometry, crystalMaterial);
+            scene.add(mainHeart);
 
-    // cobra
-    snake.forEach((segment,index)=>{
+            // --- ESTRELAS DE FUNDO ---
+            const starCount = 400;
+            const starGeometry = new THREE.BufferGeometry();
+            const starPositions = new Float32Array(starCount * 3);
 
-        ctx.fillStyle = index===0 ? "#4ade80" : "#22c55e";
+            for(let i=0; i < starCount * 3; i+=3) {
+                starPositions[i] = (Math.random() - 0.5) * 40;
+                starPositions[i+1] = (Math.random() - 0.5) * 40;
+                starPositions[i+2] = -Math.random() * 20 - 5;
+            }
 
-        ctx.fillRect(
-            segment.x*box+1,
-            segment.y*box+1,
-            box-2,
-            box-2
-        );
-    });
+            starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+            const starMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.06,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+            starField = new THREE.Points(starGeometry, starMaterial);
+            scene.add(starField);
 
-    let headX = snake[0].x;
-    let headY = snake[0].y;
+            // --- PARTÍCULAS ORBITAIS ---
+            const particleCount = 1500;
+            const particleGeometry = new THREE.BufferGeometry();
+            const particlePos = new Float32Array(particleCount * 3);
+            
+            for(let i=0; i < particleCount * 3; i+=3) {
+                particlePos[i] = (Math.random() - 0.5) * 10;
+                particlePos[i+1] = (Math.random() - 0.5) * 10;
+                particlePos[i+2] = (Math.random() - 0.5) * 10;
+            }
 
-    if(direction==="LEFT") headX--;
-    if(direction==="UP") headY--;
-    if(direction==="RIGHT") headX++;
-    if(direction==="DOWN") headY++;
+            particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
+            
+            const pMat = new THREE.PointsMaterial({
+                color: 0xff3355,
+                size: 0.04,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
 
-    // comer comida
-    if(headX===food.x && headY===food.y){
+            particleOrbit = new THREE.Points(particleGeometry, pMat);
+            scene.add(particleOrbit);
 
-        score++;
-        document.getElementById("score").textContent = score;
+            // --- PÓS-PROCESSAMENTO (BLOOM) ---
+            const renderPass = new THREE.RenderPass(scene, camera);
+            const bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight), 
+                2.2,  
+                0.6,  
+                0.15  
+            );
 
-        playBeep(700,100);
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(renderPass);
+            composer.addPass(bloomPass);
 
-        food = {
-            x: Math.floor(Math.random()*rows),
-            y: Math.floor(Math.random()*rows)
-        };
-
-    }else{
-        snake.pop();
-    }
-
-    const newHead = {
-        x: headX,
-        y: headY
-    };
-
-    // colisão parede
-    if(
-        headX < 0 ||
-        headY < 0 ||
-        headX >= rows ||
-        headY >= rows ||
-        collision(newHead,snake)
-    ){
-        gameOver();
-        return;
-    }
-
-    snake.unshift(newHead);
-}
-
-function collision(head,array){
-    for(let i=0;i<array.length;i++){
-        if(head.x===array[i].x && head.y===array[i].y){
-            return true;
+            window.addEventListener('resize', onWindowResize);
         }
-    }
-    return false;
-}
 
-function gameOver(){
+        // --- PEQUENOS CORAÇÕES FLUTUANTES ---
+        function spawnFloatingHeart() {
+            if (secondaryHearts.length > 40) {
+                const oldHeart = secondaryHearts.shift();
+                scene.remove(oldHeart);
+            }
 
-    clearInterval(game);
+            const sShape = new THREE.Shape();
+            sShape.moveTo(0, 0.2);
+            sShape.bezierCurveTo(0, 0.5, 0.4, 0.9, 0.9, 0.9);
+            sShape.bezierCurveTo(1.5, 0.9, 1.5, 0.3, 1.5, 0.3);
+            sShape.bezierCurveTo(1.5, -0.3, 0.9, -0.8, 0, -1.4);
+            sShape.bezierCurveTo(-0.9, -1.4, -1.5, -0.3, -1.5, 0.3);
+            sShape.bezierCurveTo(-1.5, 0.3, -1.5, 0.9, -0.9, 0.9);
+            sShape.bezierCurveTo(-0.4, 0.9, 0, 0.5, 0, 0.2);
 
-    playBeep(150,500);
+            const sExtrude = { depth: 0.1, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
+            const sGeom = new THREE.ExtrudeGeometry(sShape, sExtrude);
+            sGeom.center();
+            sGeom.scale(0.12, 0.12, 0.12);
 
-    if(score > highScore){
-        highScore = score;
-        localStorage.setItem("snakeHighScore",highScore);
-        document.getElementById("highScore").textContent = highScore;
-    }
+            const sMat = new THREE.MeshPhongMaterial({
+                color: 0xff1144,
+                emissive: 0x220000,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
 
-    document.getElementById("finalScore").innerHTML =
-        "Pontuação final: <strong>"+score+"</strong>";
+            const pHeart = new THREE.Mesh(sGeom, sMat);
+            
+            pHeart.position.set(
+                (Math.random() - 0.5) * 2.5,
+                (Math.random() - 0.5) * 1.5 - 1.5,
+                (Math.random() - 0.5) * 2
+            );
+            
+            pHeart.userData = {
+                speedY: 0.015 + Math.random() * 0.02,
+                speedRot: (Math.random() - 0.5) * 0.03,
+                seed: Math.random() * 100,
+                life: 1.0
+            };
 
-    document.getElementById("gameOverScreen").style.display = "flex";
-}
+            scene.add(pHeart);
+            secondaryHearts.push(pHeart);
+        }
 
-function restartGame(){
-    initGame();
-}
+        // --- ANIMACAO ---
+        let clock = new THREE.Clock();
 
-document.addEventListener("keydown",(e)=>{
+        function animate() {
+            requestAnimationFrame(animate);
 
-    if(e.key==="ArrowLeft" && direction!=="RIGHT")
-        direction="LEFT";
+            const elapsedTime = clock.getElapsedTime();
 
-    if(e.key==="ArrowUp" && direction!=="DOWN")
-        direction="UP";
+            // 1. Rotação e Flutuação do Coração
+            if (mainHeart) {
+                mainHeart.rotation.y = elapsedTime * 0.4;
+                mainHeart.rotation.x = Math.sin(elapsedTime * 0.2) * 0.2;
+                mainHeart.position.y = Math.sin(elapsedTime * 1.5) * 0.25;
 
-    if(e.key==="ArrowRight" && direction!=="LEFT")
-        direction="RIGHT";
+                // Batimento cardíaco simulado
+                let pulseFactor = Math.sin(elapsedTime * 3.5); 
+                if(pulseFactor > 0.7) {
+                    let scale = 1.0 + (pulseFactor - 0.7) * 0.25;
+                    mainHeart.scale.set(scale, scale, scale);
+                } else {
+                    mainHeart.scale.set(1, 1, 1);
+                }
+            }
 
-    if(e.key==="ArrowDown" && direction!=="UP")
-        direction="DOWN";
-});
+            // 2. Órbita das Partículas
+            if (particleOrbit) {
+                const positions = particleOrbit.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    const x = positions[i];
+                    const z = positions[i+2];
+                    const angle = 0.005 * (1 + (i % 3) * 0.1);
+                    positions[i] = x * Math.cos(angle) - z * Math.sin(angle);
+                    positions[i+2] = x * Math.sin(angle) + z * Math.cos(angle);
+                    positions[i+1] += Math.sin(elapsedTime + i) * 0.003;
+                }
+                particleOrbit.geometry.attributes.position.needsUpdate = true;
+            }
 
-function changeDirection(dir){
+            // 3. Brilho das Estrelas
+            if (starField) {
+                starField.material.size = 0.05 + Math.abs(Math.sin(elapsedTime * 2)) * 0.03;
+            }
 
-    if(dir==="left" && direction!=="RIGHT")
-        direction="LEFT";
+            // 4. Corações Secundários
+            if (Math.random() < 0.06) {
+                spawnFloatingHeart();
+            }
 
-    if(dir==="up" && direction!=="DOWN")
-        direction="UP";
+            for (let i = secondaryHearts.length - 1; i >= 0; i--) {
+                const sh = secondaryHearts[i];
+                sh.position.y += sh.userData.speedY;
+                sh.position.x += Math.sin(elapsedTime + sh.userData.seed) * 0.008;
+                sh.rotation.z += sh.userData.speedRot;
+                sh.rotation.y += sh.userData.speedRot;
 
-    if(dir==="right" && direction!=="LEFT")
-        direction="RIGHT";
+                sh.userData.life -= 0.004;
+                sh.material.opacity = sh.userData.life;
 
-    if(dir==="down" && direction!=="UP")
-        direction="DOWN";
-}
+                if (sh.userData.life <= 0) {
+                    scene.remove(sh);
+                    secondaryHearts.splice(i, 1);
+                }
+            }
 
-// suporte a swipe
-let startX,startY;
+            // 5. Câmera Cinemática
+            camera.position.x = Math.sin(elapsedTime * 0.2) * 0.8;
+            camera.position.y = Math.cos(elapsedTime * 0.2) * 0.4;
+            camera.lookAt(0, 0, 0);
 
-canvas.addEventListener("touchstart",(e)=>{
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-});
+            composer.render();
+        }
 
-canvas.addEventListener("touchend",(e)=>{
-
-    let endX = e.changedTouches[0].clientX;
-    let endY = e.changedTouches[0].clientY;
-
-    let dx = endX - startX;
-    let dy = endY - startY;
-
-    if(Math.abs(dx) > Math.abs(dy)){
-
-        if(dx > 0 && direction!=="LEFT")
-            direction="RIGHT";
-
-        else if(dx < 0 && direction!=="RIGHT")
-            direction="LEFT";
-
-    }else{
-
-        if(dy > 0 && direction!=="UP")
-            direction="DOWN";
-
-        else if(dy < 0 && direction!=="DOWN")
-            direction="UP";
-    }
-});
-
-initGame();
-</script>
-
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
 </body>
 </html>
